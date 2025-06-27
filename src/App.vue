@@ -9,7 +9,7 @@ import Background from './components/layers/Background.vue';
 import Spinner from './components/layers/Spinner.vue';
 
 import { API } from './modules/api';
-import { active_toasts, GeneralEvents, isMobile, killToast, signupMode, StartedUp } from './modules/persists';
+import { active_toasts, currentMode, GeneralEvents, isMobile, killToast, SITE_MODES, StartedUp } from './modules/persists';
 import { loadingThings } from './modules/init';
 import { KeyEvents } from './modules/keys';
 
@@ -74,15 +74,17 @@ KeyEvents.on("any", () => {
 //   // const { width, height } = entry.contentRect
 //   mobileCheck()
 // })
+import ConfirmDialog from 'primevue/confirmdialog';
 </script>
 
 <template>
+<ConfirmDialog></ConfirmDialog>
 <div id="startup-page" @click="startup()" v-if="!StartedUp">
   <p>Press Anything to Enter...</p>
 </div>
 <div id="toast-container">
   <TransitionGroup name="toasts">
-  <div v-for="entry in active_toasts" class="toast" :key="entry.id" @click="killToast(entry.id)">
+  <div v-for="entry in active_toasts" class="toast" :key="entry.id" :style="`--toast-color: ${entry.color}`" @click="killToast(entry.id)">
     <p>{{ entry.text }}</p>
   </div>
   </TransitionGroup>
@@ -91,8 +93,8 @@ KeyEvents.on("any", () => {
     <Spinner class="spinner" v-if="Object.values(loadingThings).some(bool => {return bool})" /> <!-- LoadingSpinner -->
 </Transition>
 <Popups v-if="false" /> <!-- Popups -->
-<Dashboard v-if="false"/> <!-- Main -->
-<SignUps v-if="signupMode"/> <!-- SignUps -->
+<Dashboard v-if="currentMode == SITE_MODES.MAIN"/> <!-- Main --> 
+<SignUps v-if="currentMode == SITE_MODES.SIGN_UP"/> <!-- SignUps -->
 <Background v-if="!isMobile"/> <!-- Background -->
 </template>
 
@@ -131,7 +133,7 @@ KeyEvents.on("any", () => {
   font-family: BakbakOne;
   font-size: 38px;
   color: white;
-  background: #7744ff;
+  background: var(--toast-color);
   border-radius: 15px;
   --padding: 15px;
   padding: var(--padding);

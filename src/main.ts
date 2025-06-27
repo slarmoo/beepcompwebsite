@@ -3,16 +3,35 @@ import "./extends/string"
 
 import "./modules/keys"
 
+import PrimeVue from 'primevue/config';
+import Aura from '@primeuix/themes/aura';
 import VueMobileDetection from "vue-mobile-detection";
+import ConfirmationService from 'primevue/confirmationservice';
+import DialogService from 'primevue/dialogservice'
 
-import { createApp, ref, inject } from 'vue';
+import { createApp, ref, inject, Plugin } from 'vue';
 import './style.css'
 import App from './App.vue'
 import { isMobile } from "./modules/persists";
 
 
 export const app = createApp(App)
-app.use(VueMobileDetection);
+app.use((PrimeVue as any), {
+    // Default theme configuration
+    theme: {
+        preset: Aura,
+        options: {
+            prefix: 'p',
+            darkModeSelector: 'system',
+            cssLayer: false
+        }
+    }
+ });
+// app.use((PrimeVue as any), { unstyled: true })
+// app.use((PrimeVue as Plugin<[]>), { unstyled: true })
+app.use(VueMobileDetection)
+app.use(DialogService);
+app.use(ConfirmationService)
 
 let accessRefreshKey = ref(0)
 app.provide("accessRefreshKey", accessRefreshKey)

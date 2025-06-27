@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, ComputedRef, inject, onMounted, ref, Ref, triggerRef } from 'vue'
 import { API } from '../../modules/api'
-import { DiscordAccess, DiscordAuth, TerminalEvents, Toast } from '../../modules/persists'
+import { DiscordAccess, DiscordAuth, loginWithDiscord, TerminalEvents, Toast } from '../../modules/persists'
 import { LastState, loadingThings, refreshState } from '../../modules/init'
 
 const CanContinue = (inject("CanContinue") as Ref<boolean>)
@@ -17,40 +17,19 @@ TerminalEvents.on("terminal_opened_discord", () => {
   }
 })
 
-function loginWithDiscord() {
-  let popup = window.open(import.meta.env.VITE_DISCORD_AUTH, "_blank", "popup=true")
+async function pressButton() {
+  let {server_valid, logged_in} = await loginWithDiscord()
 
-  window.addEventListener("message", async e => {
-    let { code } = JSON.parse(e.data)
-    loadingThings.value["verifyingDiscord"] = true
-
-    let res = await API.POST("/discord/identify", {code})
-    print(res)
-
-    if (res.access_token != null) {
-      DiscordAuth.value = res
-      // await (new Promise<void>((res, rej) => {setTimeout(() => res(), 10)}))
-
-      let this_res = await API.GET("/discord_only_endpoint")
-      await refreshState()
-
-      loadingThings.value["verifyingDiscord"] = false
-
-      if (DiscordLoggedIn.value) {
-        Toast("Logged in with Discord!")
-        _DiscordJustLoggedIn.value = true
-        CanContinue.value = true
-        if (!LastState.value.server_valid) {
-          TerminalEvents.emit("missing_server")
-        }
-      }
-    }
-  })
+  CanContinue.value = logged_in
+  
+  if (!server_valid) {
+    TerminalEvents.emit("missing_server")
+  }
 }
 </script>
 
 <template>
-<button class="signup-button" :style="`--color: ${DiscordLoggedIn ? '#8cd612' : '#5865F2'}`" :logged-in="DiscordLoggedIn" @click="e => { if (!DiscordLoggedIn) {loginWithDiscord()} }">
+<button class="signup-button" :style="`--color: ${DiscordLoggedIn ? '#8cd612' : '#5865F2'}`" :logged-in="DiscordLoggedIn" @click="e => { if (!DiscordLoggedIn) {pressButton()} }">
   {{ DiscordLoggedIn ? "Already Logged In!" : "Log-In With Discord" }}
 </button>
 <p class="terminal-subtext">You must log-in with Discord to verify your identity. In addition, you must also be a member in the <span class="terminal-subtext-bold">BeepBox Discord</span> server (or partnering servers) in order to be a participant!</p>

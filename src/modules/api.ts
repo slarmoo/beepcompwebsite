@@ -17,10 +17,14 @@ class APIClass {
       this.authorization = DiscordAccess.value
     }
     if (this.authorization != null) { headers["Authorization"] = `Bearer ${this.authorization}`}
-
-    let res = await this._axios({ url, method, headers, data })
-
-    return res.data
+    
+    return new Promise<any>((reso, rej) => {
+      this._axios({ url, method, headers, data }).then(res => {
+        reso(res.data)
+      }).catch(reason => {
+        reso(reason.response.data)
+      })
+    })
   }
 
   async GET(path: string, body: object = {}) {

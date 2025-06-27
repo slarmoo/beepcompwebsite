@@ -1,6 +1,6 @@
 import EventEmitter from "eventemitter3";
 import { API } from "./api";
-import { DiscordAuth, GeneralEvents, ParticipationCache, SignUpMetadata, signupMode } from "./persists";
+import { DiscordAuth, GeneralEvents, ParticipationCache, SITE_MODES, SignUpMetadata, currentMode } from "./persists";
 import { State } from "@beepcomp/core";
 import { Ref, ref } from "vue";
 
@@ -29,14 +29,16 @@ export async function refreshState() {
     DiscordAuth.value = {}
   }
 
-  if (initialState && ParticipationCache.value == false) {
+  if (initialState && !state.started && ParticipationCache.value == false) {
     DiscordAuth.value = {}
   }
 
   if (state.started != true && state.signupMeta != null) {
-    signupMode.value = true
+    currentMode.value = SITE_MODES.SIGN_UP
     SignUpMetadata.value = state.signupMeta
     InitEvents.emit("signup_init", state.signupMeta)
+  } else {
+    currentMode.value = SITE_MODES.MAIN
   }
 
   initialState = false

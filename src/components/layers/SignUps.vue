@@ -2,7 +2,7 @@
 import { computed, ComputedRef, DefineComponent, inject, onMounted, provide, ref, render, triggerRef, unref, useTemplateRef, type Ref } from 'vue';
 import { API } from '../../modules/api';
 import { InitEvents, isParticipant, LastState, loadingThings } from '../../modules/init';
-import { DiscordAccess, DiscordAuth, isMobile, ParticipationCache, SignUpMetadata, signupMode, TerminalEvents, Toast } from '../../modules/persists';
+import { _DiscordJustLoggedIn, DiscordAccess, DiscordAuth, DiscordLoggedIn, isMobile, logoutDiscord, ParticipationCache, SignUpMetadata, TerminalEvents, Toast } from '../../modules/persists';
 import { CharObj, getLineChars, SignupButton, SignupDialogue, State } from '@beepcomp/core';
 
 import { ReturnedValue, useSound } from '@vueuse/sound'
@@ -70,11 +70,8 @@ const SignUpPayload = ref({
 })
 provide("SignUpPayload", SignUpPayload)
 
-const _DiscordJustLoggedIn = ref(false)
+
 provide("_DiscordJustLoggedIn", _DiscordJustLoggedIn)
-const DiscordLoggedIn = computed(() => {
-  return (_DiscordJustLoggedIn.value || DiscordAccess.value != null)
-})
 provide("DiscordLoggedIn", DiscordLoggedIn)
 
 const CurrentDialogue: Ref<SignupDialogue | null> = ref(null)
@@ -121,10 +118,7 @@ const ButtonIntercepts: Ref<{[index: string]: () => void}> = ref({
   withdraw_yes: async () => {
     print("I'm boss.")
     // Loading Wheel?...
-    DiscordAuth.value = {}
-    _DiscordJustLoggedIn.value = false
-    isParticipant.value = false
-    ParticipationCache.value = false
+    logoutDiscord()
 
     loadingThings.value["deletingUser"] = true
     let res = await API.DELETE("/users/@me")
