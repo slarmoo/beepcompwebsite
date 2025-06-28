@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import { computed, nextTick, onMounted, reactive, ref, Ref, toRaw, triggerRef, watch } from 'vue';
+import { computed, nextTick, onMounted, reactive, ref, Ref, toRaw, triggerRef, useTemplateRef, watch } from 'vue';
 import { currentDashRound, DiscordLoggedIn, loginWithDiscord, Toast } from '../../modules/persists';
 import { LastState, loadingThings } from '../../modules/init';
 import { API } from '../../modules/api';
-import { Round, SimpleModifier, SimpleUser, Submission } from '@beepcomp/core';
+import { Round, SimpleModifier, SimpleUser, Submission, User } from '@beepcomp/core';
 import moment from "moment"
 import { clear_timeout, clear_timeout_channel, timeout } from '../../modules/time_based';
 
@@ -16,6 +16,10 @@ import { Interfacer, SubmissionSchema, SubmissionRequest } from "@beepcomp/core"
 import Dialog from 'primevue/dialog';
 import InputText from 'primevue/inputtext';
 import AutoComplete from 'primevue/autocomplete';
+import Select from 'primevue/select';
+import Button from 'primevue/button';
+import SelectButton from 'primevue/selectbutton';
+import Textarea from 'primevue/textarea';
 
 const LOADING_ROUND: Round = {
   prompt: "loading...",
@@ -95,28 +99,93 @@ onMounted(async () => {
   refreshRoundInfo()
 })
 
+function resolveSimpleUser(id) {
+  let user = usernames.value.find(entry => entry.id == id)
+  if (user) {
+    return {id, username: user.username}
+  } else {
+    return null
+  }
+}
+
+const alreadySubmitted: Ref<boolean> = ref(false)
+const incoming_requests: Ref<any> = ref([])
+const usernames: Ref<User[]> = ref([])
+const modifiers: Ref<SimpleModifier[]> = ref([])
+const filteredModifiers: Ref<SimpleModifier[]> = ref([]);
+
+const modifierSearch = event => {
+  if (!event.query.trim().length) {
+      filteredModifiers.value = [...modifiers.value];
+  } else {
+      filteredModifiers.value = modifiers.value.filter((modifier) => {
+          return modifier.text.toLowerCase().startsWith(event.query.toLowerCase());
+      });
+  }
+}
+
 async function refreshRoundInfo() {
   print("Round: ", currentDashRound.value)
 
-  let round = await API.GET(`/rounds/${currentDashRound.value}`)
+  let proms = await Promise.all([
+    API.GET(`/rounds/${currentDashRound.value}`),
+    API.GET(`/submit/${currentDashRound.value}`),
+    API.GET("/users"),
+    API.GET("/modifiers"),
+    API.GET(`/requests/${currentDashRound.value}`),
+  ])
+  print(proms)
+
+  let round = proms[0]
   currentRoundObj.value = round
   durationTillNext.value = moment.duration(moment(Date.now()).diff(currentRoundObj.value.next))
 
-  print("Round Obj: ", currentRoundObj.value)
+  // print("Round Obj: ", currentRoundObj.value)
+  usernames.value = proms[2]
+  modifiers.value = proms[3].map(entry => ({id: entry.id, text: entry.text}))
 
-  let submission: Submission = await API.GET(`/submit/${currentDashRound.value}`)
-  print("Submission Obj: ", submission)
-  submissionInit.value.title = submission.title
-  submissionInit.value.link = submission.link
-  
-  collabValue.value = (submission.authors.find(entry => entry != LastState.value?.user?.id) || "")
-  submissionInit.value.collaborator = collabValue.value
-  
-  battleValue.value = (submission.challenger || "")
-  submissionInit.value.challenger = battleValue.value
-  
-  modifierValue.value = submission.modifiers.map(id => modifiers.value.find(entry => entry.id == id))
-  submissionInit.value.modifiers = modifierValue.value
+  incoming_requests.value = proms[4].incoming
+
+  alreadySubmitted.value = false
+  if (!proms[1].error && proms[1].title) {
+    alreadySubmitted.value = true
+
+    submissionInit.value = BLANK_SUBMISSION_INIT
+
+    let submission: Submission = proms[1]
+    // print("Submission Obj: ", submission)
+    submissionInit.value.title = submission.title
+    submissionInit.value.link = submission.link
+    submissionInit.value.desc = submission.desc
+    
+    if (proms[4].outgoing) {
+      submissionInit.value.request_type = proms[4].outgoing.type
+      submissionInit.value.request_receivingId = proms[4].outgoing.receivingId
+    } else {
+      let other_author_id = submission.authors.find(entry => entry != LastState.value?.user?.id)
+      if (submission.challenger) {
+        submissionInit.value.request_type = "battle"
+        submissionInit.value.request_receivingId = proms[4].outgoing.receivingId
+      } else if (other_author_id) {
+        submissionInit.value.request_type = "collab"
+        submissionInit.value.request_receivingId = other_author_id
+      }
+    }
+
+    // if (submissionInit.value.request_type != null) { submissionInit.value.request_type = "Collab" }
+    // if (submissionInit.value.request_receivingId != null) { submissionInit.value.request_receivingId = "planet_bluto_3" }
+    // if (collab != "") { collabValue.value = resolveSimpleUser(collab) }
+    // else (battle != "") { battleValue.value = resolveSimpleUser(battle) }
+
+    // submissionInit.value.collaborator = (collab.length > 0 ? collabValue.value.username : "")
+    // submissionInit.value.challenger = (battle.length > 0 ? battleValue.value.username : "")
+    
+    modifierValue.value = submission.modifiers.map(id => modifiers.value.find(entry => entry.id == id))
+    submissionInit.value.modifiers = modifierValue.value
+
+  }
+
+  print("submissionInit: ", submissionInit.value)
 
   timeout(refreshRoundInfo, 60000, "round_refresh")
 }
@@ -159,47 +228,13 @@ const validAlerts = computed(() => {
   return (Object.keys(FLAG_DESCRIPTIONS).filter(key => stateFlags.value.has(key)).map(key => FLAG_DESCRIPTIONS[key]))
 })
 
-
-const usernames: Ref<SimpleUser[]> = ref([ // << API Content
-  {id: "1092635593332248586", username: "planet_bluto_2"},
-  {id: "1111344374715011082", username: "planet_bluto_3"}
-])
-const filteredUsernames: Ref<SimpleUser[]> = ref([]);
-
-const usernameSearch = event => {
-  if (!event.query.trim().length) {
-      filteredUsernames.value = [...usernames.value];
-  } else {
-      filteredUsernames.value = usernames.value.filter((entry) => {
-          return entry.username.toLowerCase().startsWith(event.query.toLowerCase());
-      });
-  }
-}
-
-const modifierCount = ref(3)
-const modifiers: Ref<SimpleModifier[]> = ref([ // << API Content
-  {id: "7941552781398016", text: "fish"},
-  {id: "7941552781398017", text: "fishing"},
-  {id: "7941552781398018", text: "fishy"},
-])
-const filteredModifiers: Ref<SimpleModifier[]> = ref([]);
-
-const modifierSearch = event => {
-  if (!event.query.trim().length) {
-      filteredModifiers.value = [...modifiers.value];
-  } else {
-      filteredModifiers.value = modifiers.value.filter((modifier) => {
-          return modifier.text.toLowerCase().startsWith(event.query.toLowerCase());
-      });
-  }
-}
-
 const editions = ref([ // << API Content
   "https://ultraabox.github.io/"
 ])
 
 //// SUBMISSIONS
 import { useConfirm } from "primevue/useconfirm";
+import { isAssertEntry } from 'typescript';
 
 const confirm = useConfirm();
 
@@ -242,6 +277,10 @@ const submissionVisible = ref(false)
 const onSubmissionSubmit = ({valid, values}) => {
   print("pre: ", values)
   values["modifiers"] = toRaw(values["modifiers"]).map(entry => entry.id)
+
+  // if (requestType.value) {
+  //   values[requestType.value] = requestType.value
+  // }
   // values["modifiers"] = values["modifiers"].map(modifier => {
   //   return modifiers.value.find((entry: any) => entry.text == modifier)?.id
   // })
@@ -257,22 +296,24 @@ Interfacer["resolveUsers"] = () => usernames.value
 Interfacer["resolveModifiers"] = () => modifiers.value
 Interfacer["resolveEditions"] = () => editions.value
 const submissionResolver = ref(yupResolver(SubmissionSchema))
-const submissionInit: Ref<SubmissionRequest> = ref({
+const BLANK_SUBMISSION_INIT = {
   title: "",
-  collaborator: "",
-  challenger: "",
+  request_type: null,
+  request_receivingId: null,
   link: "",
+  desc: "",
   modifiers: []
-})
+}
+const submissionInit: Ref<any> = ref(BLANK_SUBMISSION_INIT)
 
 const modifierValue: Ref<any[]> = ref([])
-const collabValue: Ref<any> = ref({id: "", username: ""})
-const battleValue: Ref<any> = ref({id: "", username: ""})
+const requestType = ref("")
+const requestValue = ref("")
 
 function openSubmissionForm() {
-  modifierValue.value = []
-  collabValue.value = {id: "", username: ""}
-  battleValue.value = {id: "", username: ""}
+  // modifierValue.value = []
+  // collabValue.value = {id: "", username: ""}
+  // battleValue.value = {id: "", username: ""}
   
   submissionVisible.value = true
 }
@@ -280,6 +321,88 @@ function openSubmissionForm() {
 function closeSubmissionForm() {
   submissionVisible.value = false
 }
+
+const requestTypeOptions = [
+  {name: "Collab", value: "collab"},
+  {name: "Battle", value: "battle"},
+]
+
+function generateHTML(request) {
+  let html = `<span style="color: ${request.type == "collab" ? "#25F3FF" : "#E03C28"}">${request.type == "collab" ? "Collab" : "Battle"} Request!</span> from ${resolveSimpleUser(request.sendingId)?.username}`
+  return html
+}
+
+const collabOverwriteConfirm = (reso: (...any) => any) => {
+    confirm.require({
+        message: 'If you accept this collab, it will DELETE your current submission! Would you still like to continue?',
+        header: 'Confirmation',
+        icon: 'pi pi-exclamation-triangle',
+        rejectProps: {
+            label: 'Cancel',
+            severity: 'secondary',
+            outlined: true
+        },
+        acceptProps: {
+            label: 'Accept & Delete Submission'
+        },
+        accept: async () => {
+          reso()
+        },
+        reject: () => {
+            // ... idk
+        }
+    });
+};
+
+async function acceptRequest(request) {
+  loadingThings.value["processingRequest"] = true
+  if (alreadySubmitted.value) {
+    // ... Confirm prompt
+    await new Promise<void>((reso, rej) => {
+      collabOverwriteConfirm(reso)
+    })
+  }
+
+  let res = await API.POST(`/requests/accept/${request.id}`)
+
+  await refreshRoundInfo()
+
+  loadingThings.value["processingRequest"] = false
+
+  if (res) {
+    Toast(`Successfully accepted ${request.type == "collab" ? "Collab" : "Battle"} Request!`)
+  } else {
+    Toast(`Error Processing Request... Try again`)
+  }
+
+  return res
+}
+async function declineRequest(request) {
+  loadingThings.value["processingRequest"] = true
+  let res = await API.POST(`/requests/decline/${request.id}`)
+
+  await refreshRoundInfo()
+
+  loadingThings.value["processingRequest"] = false
+
+  if (res) {
+    Toast(`Successfully declined ${request.type == "collab" ? "Collab" : "Battle"} Request!`)
+  } else {
+    Toast(`Error Processing Request... Try again`)
+  }
+
+  return res
+}
+
+const rendered_requests = computed(() => {
+  return incoming_requests.value.filter(request => {
+    if (!alreadySubmitted.value) {
+      return request.type == "collab"
+    } else {
+      return true
+    }
+  })
+})
 </script>
 
 <template>
@@ -287,34 +410,39 @@ function closeSubmissionForm() {
   <Form v-slot="$form" :initialValues="submissionInit" :resolver="submissionResolver" @submit="onSubmissionSubmit" class="form">
     <p>TITLE</p>
     <InputText name="title" type="text" />
-    <div class="collab-battle-cont">
-      <div>
-        <p>COLLABORATOR ({{ typeof collabValue }})</p>
-        <!-- <InputText name="collaborator.id" v-model="collabValue.id" :hidden="false" :readonly="true"/> -->
-        <AutoComplete name="collaborator" optionLabel="username" :suggestions="filteredUsernames" @complete="usernameSearch" @input="e => collabValue = e.target.value" :disabled="!(battleValue.username == '' || battleValue == undefined || battleValue == '')" />
-      </div>
 
-      <p class="collab-battle-or">OR</p>
-
-      <div>
-        <p>CHALLENGER ({{ typeof battleValue }})</p>
-        <!-- <InputText name="challenger.id" v-model="battleValue.id" :hidden="false" :readonly="true"/> -->
-        <AutoComplete name="challenger" optionLabel="username" :suggestions="filteredUsernames" @complete="usernameSearch" @input="e => battleValue = e.target.value" :disabled="!(collabValue.username == '' || collabValue == undefined || collabValue == '')" />
-      </div>
-    </div>
-    
     <p>LINK</p>
     <InputText name="link" type="text" />
 
+    <p><span style="color: #25F3FF">Collab</span> or <span style="color: #E03C28">Battle</span></p>
+    <div class="collab-battle-cont">
+      <SelectButton name="request_type" :options="requestTypeOptions" option-label="name" option-value="value" v-model="requestType"/>
+      <Select name="request_receivingId" option-label="username" option-value="id" :options="usernames.map(entry => resolveSimpleUser(entry.id))" :editable="true" @change="e => requestValue = e.value" :disabled="requestType == null" />
+    </div>
+    
     <p>CHOOSE MODIFIERS ({{ modifierValue.length }} / 3)</p>
-    <p>{{ modifierValue }}</p>
-    <!-- <p @click="modifierCount -= 1; console.log(modifierCount)">-</p>
-    <p @click="modifierCount += 1; console.log(modifierCount)">+</p> -->
     <AutoComplete name="modifiers" optionLabel="text" :suggestions="filteredModifiers" @complete="modifierSearch" :multiple="true" @input="e => modifierValue = e.target.value" />
+
+    <p>Desc / Context:</p>
+    <Textarea name="desc" rows="5" cols="30" />
 
     <button type="submit">Submit</button>
   </Form>
 </Dialog>
+
+<div id="incoming-requests">
+  <div v-for="request in rendered_requests" class="incoming-request-cont">
+    <img class="incoming-request-pfp" :src="`https://cdn.discordapp.com/avatars/${request.sendingId}/${usernames.find(entry => entry.id == request.sendingId)?.avatar}.png?size=64`" />
+    <div>
+      <p v-html="generateHTML(request)"></p>
+      <!-- <p v-html="`<span style="color: ${request.type == "collab" ? "#25F3FF" : "#E03C28"}">${request.type == "collab" ? "Collab" : "Battle"} Request</span> from ${resolveSimpleUser(request.sendingId)?.username}`"></p> -->
+      <div class="request-button-cont">
+        <button class="request-button accept" @click="acceptRequest(request)">Accept</button>
+        <button class="request-button decline" @click="declineRequest(request)">Decline</button>
+      </div>
+    </div>
+  </div>
+</div>
 
 <div :style="`--current-color: ${ROUND_STATE_METADATA[currentState].color}; --current-real-color: ${ROUND_STATE_METADATA[currentRoundObj.current_state].color};`" id="inner">
   <button id="main_button" @click="ROUND_STATE_METADATA[currentState].click" v-if="!stateFlags.has('CANT_SUBMIT')">{{ ROUND_STATE_METADATA[currentState].button_text }}
@@ -356,16 +484,44 @@ function closeSubmissionForm() {
   font-family: BakbakOne;
 }
 
-.collab-battle-cont {
+#incoming-requests {
   display: flex;
+  flex-direction: column;
   gap: 15px;
-  align-items: center;
+  margin-bottom: 30px;
 }
 
-.collab-battle-or {
-  font-size: 32px;
-  height: 43px;
+.incoming-request-cont {
+  display: flex;
+  /* flex-direction: column; */
+  gap: 15px;
+  background: #202020;
+  padding: 15px;
+  width: 100%;
+  border-radius: 15px;
+  font-size: 24px;
 }
+
+.incoming-request-pfp {
+  border-radius: 15px;
+}
+
+.request-button-cont {
+  display: flex;
+  gap: 15px;
+}
+
+.request-button {
+  border: none;
+  border-radius: 15px;
+  padding: 5px;
+  padding-left: 15px;
+  padding-right: 15px;
+  font-size: 15px;
+}
+
+.accept { border: 5px solid #95ff00; }
+.decline { border: 5px solid #e03c28; }
 
 #inner {
   display: flex;

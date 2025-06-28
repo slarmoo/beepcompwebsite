@@ -22,7 +22,8 @@ class APIClass {
       this._axios({ url, method, headers, data }).then(res => {
         reso(res.data)
       }).catch(reason => {
-        reso(reason.response.data)
+        print(reason)
+        reso(reason?.response?.data)
       })
     })
   }
