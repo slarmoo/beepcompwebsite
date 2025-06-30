@@ -3,6 +3,10 @@
     src: url("https://beepcomp.co/fonts/BakbakOne-Regular.ttf");
 }
 
+* {
+  font-family: BakbakOne;
+}
+
 body {
     width: var(--scr-width);
     max-width: var(--scr-width);

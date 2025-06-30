@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, reactive, ref, Ref, toRaw, triggerRef, useTemplateRef, watch } from 'vue';
-import { currentDashRound, DiscordLoggedIn, loginWithDiscord, Toast } from '../../modules/persists';
-import { LastState, loadingThings } from '../../modules/init';
+import { currentDashRound, DiscordLoggedIn, GeneralEvents, loginWithDiscord, Toast } from '../../modules/persists';
+import { LastState, loadingThings, refreshState } from '../../modules/init';
 import { API } from '../../modules/api';
 import { Round, SimpleModifier, SimpleUser, Submission, User } from '@beepcomp/core';
 import moment from "moment"
@@ -20,6 +20,65 @@ import Select from 'primevue/select';
 import Button from 'primevue/button';
 import SelectButton from 'primevue/selectbutton';
 import Textarea from 'primevue/textarea';
+import MultiSelect from 'primevue/multiselect';
+
+const VOL = 0.5
+
+import ROUND_1_MUSIC_AUDIO from "../../assets/sfx/ROUND_1.flac"
+const ROUND_1_MUSIC_SFX = useSound(ROUND_1_MUSIC_AUDIO, {onload: () => {
+    (ROUND_1_MUSIC_SFX.sound.value as any).loop(true)
+    ROUND_1_MUSIC_SFX.play()
+    ROUND_1_MUSIC_SFX.sound.value.volume((currentDashRound.value == 1) ? VOL : 0)
+  },
+  volume: ((currentDashRound.value == 1) ? VOL : 0)
+})
+import ROUND_2_MUSIC_AUDIO from "../../assets/sfx/ROUND_2.flac"
+const ROUND_2_MUSIC_SFX = useSound(ROUND_2_MUSIC_AUDIO, {onload: () => {
+    (ROUND_2_MUSIC_SFX.sound.value as any).loop(true)
+    ROUND_2_MUSIC_SFX.play()
+    ROUND_2_MUSIC_SFX.sound.value.volume((currentDashRound.value == 2) ? VOL : 0)
+  },
+  volume: ((currentDashRound.value == 2) ? VOL : 0)
+})
+import ROUND_3_MUSIC_AUDIO from "../../assets/sfx/ROUND_3.flac"
+const ROUND_3_MUSIC_SFX = useSound(ROUND_3_MUSIC_AUDIO, {onload: () => {
+    (ROUND_3_MUSIC_SFX.sound.value as any).loop(true)
+    ROUND_3_MUSIC_SFX.play()
+    ROUND_3_MUSIC_SFX.sound.value.volume((currentDashRound.value == 3) ? VOL : 0)
+  },
+  volume: ((currentDashRound.value == 3) ? VOL : 0)
+})
+import ROUND_4_MUSIC_AUDIO from "../../assets/sfx/ROUND_4.flac"
+const ROUND_4_MUSIC_SFX = useSound(ROUND_4_MUSIC_AUDIO, {onload: () => {
+    (ROUND_4_MUSIC_SFX.sound.value as any).loop(true)
+    ROUND_4_MUSIC_SFX.play()
+    ROUND_4_MUSIC_SFX.sound.value.volume((currentDashRound.value == 4) ? VOL : 0)
+  },
+  volume: ((currentDashRound.value == 4) ? VOL : 0)
+})
+function switchTo(mode: string) {
+  const map: {[index: string]: ReturnedValue} = {
+    "1": ROUND_1_MUSIC_SFX,
+    "2": ROUND_2_MUSIC_SFX,
+    "3": ROUND_3_MUSIC_SFX,
+    "4": ROUND_4_MUSIC_SFX,
+  }
+  
+  Object.keys(map).forEach(this_mode => {
+    // print(this_mode, map[this_mode].sound.value)
+    if (map[mode].sound.value == null) { return }
+    // print(this_mode, map[this_mode].sound.value.volume())
+    if (this_mode == mode) {
+      if (map[this_mode].sound.value.volume() != VOL) {
+        map[this_mode].sound.value.fade(0, VOL, 1000)
+      }
+    } else {
+      if (map[this_mode].sound.value.volume() > 0) {
+        map[this_mode].sound.value.fade(map[this_mode].sound.value.volume(), 0, 1000)
+      }
+    }
+  })
+}
 
 const LOADING_ROUND: Round = {
   prompt: "loading...",
@@ -89,14 +148,30 @@ const ROUND_STATE_METADATA: {[index: string]: {color: string; button_text: strin
 
 const durationTillNext = ref(moment.duration(moment(Date.now()).diff(currentRoundObj.value.next)))
 
-onMounted(async () => {
+async function newRound(skipState = false) {
   if (currentDashRound.value == -1 && LastState.value.currentRound != null) {
     currentDashRound.value = LastState.value.currentRound
   }
 
-  print("Mounted!")
   clear_timeout_channel("round_refresh")
-  refreshRoundInfo()
+  loadingThings.value["newRoundPage"] = true
+  await refreshRoundInfo(skipState)
+  await nextTick()
+  loadingThings.value["newRoundPage"] = false
+
+  switchTo(String(currentDashRound.value))
+}
+
+GeneralEvents.on('change-round', (round_num: number) => {
+  currentDashRound.value = round_num
+  print("NEW ROUND PAGE: ", round_num)
+  newRound()
+})
+
+// var mounted = false
+onMounted(async () => {
+  print("Mounted!")
+  newRound(true)
 })
 
 function resolveSimpleUser(id) {
@@ -124,51 +199,58 @@ const modifierSearch = event => {
   }
 }
 
-async function refreshRoundInfo() {
+async function refreshRoundInfo(skipState = false) {
   print("Round: ", currentDashRound.value)
 
-  let proms = await Promise.all([
-    API.GET(`/rounds/${currentDashRound.value}`),
-    API.GET(`/submit/${currentDashRound.value}`),
-    API.GET("/users"),
-    API.GET("/modifiers"),
-    API.GET(`/requests/${currentDashRound.value}`),
-  ])
-  print(proms)
+  if (!skipState) { await refreshState() }
+  if (LastState.value.rounds == undefined) { return }
 
-  let round = proms[0]
+
+  // let proms = await Promise.all([
+  //   API.GET(`/rounds/${currentDashRound.value}`), // state.rounds: {...Round, submissions: Submission[], modifiers: Modifier[], requests: Requests[]}[]
+  //   API.GET(`/submit/${currentDashRound.value}`), // state.rounds.submissions: Submission[]
+  //   API.GET("/users"), // state.users: User[]
+  //   API.GET("/modifiers"), // state.rounds.modifiers: Modifier[]
+  //   API.GET(`/requests/${currentDashRound.value}`), // state.rounds.requests: Request[]
+  // ])
+  // print(proms)
+
+  let round_idx = Number(currentDashRound.value) - 1
+  print("round_idx: ", round_idx)
+  let round = LastState.value.rounds[round_idx]
   currentRoundObj.value = round
   durationTillNext.value = moment.duration(moment(Date.now()).diff(currentRoundObj.value.next))
 
   // print("Round Obj: ", currentRoundObj.value)
-  usernames.value = proms[2]
-  modifiers.value = proms[3].map(entry => ({id: entry.id, text: entry.text}))
+  usernames.value = (LastState.value.other_users || [])
+  modifiers.value = LastState.value.modifiers.map(entry => ({id: entry.id, text: entry.text}))
 
-  incoming_requests.value = proms[4].incoming
+  incoming_requests.value = LastState.value.rounds[round_idx].requests.incoming
+  print("LastState.value.rounds[round_idx].requests.incoming: ", LastState.value.rounds[round_idx].requests.incoming)
 
   alreadySubmitted.value = false
-  if (!proms[1].error && proms[1].title) {
+  if (LastState.value.rounds[round_idx].submission?.title != null) {
     alreadySubmitted.value = true
 
     submissionInit.value = BLANK_SUBMISSION_INIT
 
-    let submission: Submission = proms[1]
-    // print("Submission Obj: ", submission)
+    let submission: Submission = LastState.value.rounds[round_idx].submission
+    print("Submission Obj: ", submission)
     submissionInit.value.title = submission.title
     submissionInit.value.link = submission.link
     submissionInit.value.desc = submission.desc
     
-    if (proms[4].outgoing) {
-      submissionInit.value.request_type = proms[4].outgoing.type
-      submissionInit.value.request_receivingId = proms[4].outgoing.receivingId
+    if (LastState.value.rounds[round_idx].requests.outgoing != null) {
+      submissionInit.value.request_type = LastState.value.rounds[round_idx].requests.outgoing.type
+      submissionInit.value.request_receivingId = LastState.value.rounds[round_idx].requests.outgoing.receivingId
     } else {
-      let other_author_id = submission.authors.find(entry => entry != LastState.value?.user?.id)
+      let other_author_id = (submission.authors as any[]).find((entry: any) => entry.userId != LastState.value?.user?.id)
       if (submission.challenger) {
         submissionInit.value.request_type = "battle"
-        submissionInit.value.request_receivingId = proms[4].outgoing.receivingId
+        submissionInit.value.request_receivingId = submission.challenger
       } else if (other_author_id) {
         submissionInit.value.request_type = "collab"
-        submissionInit.value.request_receivingId = other_author_id
+        submissionInit.value.request_receivingId = other_author_id.userId
       }
     }
 
@@ -180,7 +262,7 @@ async function refreshRoundInfo() {
     // submissionInit.value.collaborator = (collab.length > 0 ? collabValue.value.username : "")
     // submissionInit.value.challenger = (battle.length > 0 ? battleValue.value.username : "")
     
-    modifierValue.value = submission.modifiers.map(id => modifiers.value.find(entry => entry.id == id))
+    modifierValue.value = submission.modifiers.map((thisEntry: any) => modifiers.value.find(entry => entry.id == thisEntry.modifierId))
     submissionInit.value.modifiers = modifierValue.value
 
   }
@@ -220,9 +302,9 @@ const FLAG_DESCRIPTIONS = {
   "WRONG_SERVER": "During voting, you must be in the correct servers to vote on submissions",
 }
 
-watch(currentDashRound, () => {
-  refreshRoundInfo()
-})
+// watch(currentDashRound, () => {
+//   refreshRoundInfo()
+// })
 
 const validAlerts = computed(() => {
   return (Object.keys(FLAG_DESCRIPTIONS).filter(key => stateFlags.value.has(key)).map(key => FLAG_DESCRIPTIONS[key]))
@@ -235,6 +317,7 @@ const editions = ref([ // << API Content
 //// SUBMISSIONS
 import { useConfirm } from "primevue/useconfirm";
 import { isAssertEntry } from 'typescript';
+import { ReturnedValue, useSound } from '@vueuse/sound';
 
 const confirm = useConfirm();
 
@@ -298,8 +381,8 @@ Interfacer["resolveEditions"] = () => editions.value
 const submissionResolver = ref(yupResolver(SubmissionSchema))
 const BLANK_SUBMISSION_INIT = {
   title: "",
-  request_type: null,
-  request_receivingId: null,
+  request_type: "",
+  request_receivingId: "",
   link: "",
   desc: "",
   modifiers: []
@@ -332,7 +415,7 @@ function generateHTML(request) {
   return html
 }
 
-const collabOverwriteConfirm = (reso: (...any) => any) => {
+const collabOverwriteConfirm = (reso: (boolean) => any) => {
     confirm.require({
         message: 'If you accept this collab, it will DELETE your current submission! Would you still like to continue?',
         header: 'Confirmation',
@@ -346,21 +429,58 @@ const collabOverwriteConfirm = (reso: (...any) => any) => {
             label: 'Accept & Delete Submission'
         },
         accept: async () => {
-          reso()
+          reso(true)
         },
         reject: () => {
-            // ... idk
+          reso(false)
+        }
+    });
+};
+
+const collabCleanUpConfirm = (reso: (boolean) => any) => {
+    confirm.require({
+        message: 'If you accept this collab, it will remove your outgoing requests',
+        header: 'Confirmation',
+        icon: 'pi pi-exclamation-triangle',
+        rejectProps: {
+            label: 'Cancel',
+            severity: 'secondary',
+            outlined: true
+        },
+        acceptProps: {
+            label: 'Accept & Delete Submission'
+        },
+        accept: async () => {
+          reso(true)
+        },
+        reject: () => {
+          reso(false)
         }
     });
 };
 
 async function acceptRequest(request) {
   loadingThings.value["processingRequest"] = true
-  if (alreadySubmitted.value) {
+  print("request: ", request)
+  if (alreadySubmitted.value && request.type == "collab") {
     // ... Confirm prompt
-    await new Promise<void>((reso, rej) => {
+    let confirmed: boolean = await new Promise<boolean>((reso, rej) => {
       collabOverwriteConfirm(reso)
     })
+
+    print("bro. ", confirmed)
+
+    if (!confirmed) { loadingThings.value["processingRequest"] = false; return }
+  }
+
+  let round_idx = Number(currentDashRound.value) - 1
+  if ((LastState.value.rounds || [])[round_idx]?.requests?.outgoing != null) {
+    // ... Confirm prompt
+    let confirmed: boolean = await new Promise<boolean>((reso, rej) => {
+      collabOverwriteConfirm(reso)
+    })
+
+    if (!confirmed) { loadingThings.value["processingRequest"] = false; return }
   }
 
   let res = await API.POST(`/requests/accept/${request.id}`)
@@ -420,8 +540,9 @@ const rendered_requests = computed(() => {
       <Select name="request_receivingId" option-label="username" option-value="id" :options="usernames.map(entry => resolveSimpleUser(entry.id))" :editable="true" @change="e => requestValue = e.value" :disabled="requestType == null" />
     </div>
     
-    <p>CHOOSE MODIFIERS ({{ modifierValue.length }} / 3)</p>
-    <AutoComplete name="modifiers" optionLabel="text" :suggestions="filteredModifiers" @complete="modifierSearch" :multiple="true" @input="e => modifierValue = e.target.value" />
+    <p>CHOOSE MODIFIERS</p>
+    <!-- <MultiSelect name="modifiers" optionLabel="text" :suggestions="filteredModifiers" @complete="modifierSearch" :multiple="true" @input="e => modifierValue = e.target.value" /> -->
+    <MultiSelect name="modifiers" :options="modifiers" optionLabel="text" :show-clear="true" :selectionLimit="3" @input="e => modifierValue = e.target.value" />
 
     <p>Desc / Context:</p>
     <Textarea name="desc" rows="5" cols="30" />
@@ -456,7 +577,7 @@ const rendered_requests = computed(() => {
     </div>
   </div>
 
-  <p id="round-header">{{ `ROUND ${currentDashRound}: ${currentRoundObj.prompt || LOADING_ROUND.prompt}` }}</p>
+  <p id="round-header">{{ `ROUND ${currentDashRound}: ` }}<span style="color: #25F3FF">{{ currentRoundObj.prompt || LOADING_ROUND.prompt }}</span></p>
   <div id="time-cont">
     <p id="time-header">{{ROUND_STATE_METADATA[currentRoundObj.current_state].time_header}}</p>
     <div id="timestamp">
@@ -588,7 +709,7 @@ const rendered_requests = computed(() => {
 }
 
 #round-header {
-  font-size: 42px;
+  font-size: 64px;
 }
 
 #time-cont {
@@ -599,32 +720,34 @@ const rendered_requests = computed(() => {
 }
 
 #time-header {
-  font-size: 30px;
+  font-size: 48px;
 }
 
 #timestamp {
   border: var(--current-real-color) 5px solid;
   background: linear-gradient(to bottom, #0D0D0D 0%, #0D0D0D 50%, color-mix(in srgb, var(--current-real-color), transparent 50%) 100% );
-  width: 250px;
+  width: 350px;
   text-align: center;
   border-radius: 8px;
   color: white;
   -webkit-text-fill-color: white;
   -webkit-text-stroke-color: #0D0D0D;
   -webkit-text-stroke-width: 8px;
-  height: 33px;
+  font-size: 20px;
+  height: 38px;
 }
 
 #timestamp_label_fill {
   -webkit-text-fill-color: white;
   -webkit-text-stroke-width: 0px;
   position: relative;
-  top: -23px;
+  top: -30px;
   margin-top: 0px;
 }
 
 #desc {
-  opacity: 0.5;
+  font-size: 32px;
+  opacity: 0.6;
 }
 
 p {

@@ -11,7 +11,8 @@ export const loadingThings: Ref<{[index: string]: boolean}> = ref({})
 export const LastState: Ref<State> = ref({
   serverTime: 0,
   started: false,
-  server_valid: false
+  server_valid: false,
+  modifiers: []
 })
 
 var initialState = true

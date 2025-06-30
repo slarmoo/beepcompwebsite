@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { LastState } from "../../modules/init";
-import { currentDashRound, DiscordLoggedIn, logoutDiscord } from "../../modules/persists";
+import { currentDashRound, DiscordLoggedIn, GeneralEvents, logoutDiscord } from "../../modules/persists";
 import SidebarButton from "./sidebar/button.vue"
 
 import roundsSVG from "../../assets/svg/rounds.svg"
@@ -19,6 +19,10 @@ function warnLogOut() {
   let yeah = confirm("Are you sure you want to log out?")
   if (yeah) { logoutDiscord() }
 }
+
+GeneralEvents.on('change-round', (round_num: number) => {
+  currentDashRound.value
+})
 </script>
 
 <template>
@@ -34,11 +38,11 @@ function warnLogOut() {
 
   <div id="buttons">
     <SidebarButton label="Rounds" :icon="roundsSVG">
-      <SidebarButton v-for="round_num in LastState.currentRound" :label="`Round ${round_num}`" :click="e => { currentDashRound = round_num }" />
+      <SidebarButton v-for="round_num in LastState.currentRound" :label="`Round ${round_num}`" :click="e => { GeneralEvents.emit('change-round', round_num) }" />
     </SidebarButton>
-    <SidebarButton label="Participants" :icon="peopleSVG" :click="e => { console.log(`somethin' something' Participants`) }"/>
-    <SidebarButton label="Your Picks" :icon="starSVG" :click="e => { console.log(`somethin' something' Your`) }" v-if="DiscordLoggedIn"/>
-    <SidebarButton label="Settings" :icon="cogSVG" :click="e => { console.log(`somethin' something' Settings`) }"/>
+    <!-- <SidebarButton label="Participants" :icon="peopleSVG" :click="e => { console.log(`somethin' something' Participants`) }"/> -->
+    <!-- <SidebarButton label="Your Picks" :icon="starSVG" :click="e => { console.log(`somethin' something' Your`) }" v-if="DiscordLoggedIn"/> -->
+    <!-- <SidebarButton label="Settings" :icon="cogSVG" :click="e => { console.log(`somethin' something' Settings`) }"/> -->
     <SidebarButton label="About" :icon="questionSVG" :click="e => { openAboutPage() }"/>
     <SidebarButton label="Logout" :icon="logoutSVG" :click="e => { warnLogOut() }" v-if="DiscordLoggedIn"/>
   </div>

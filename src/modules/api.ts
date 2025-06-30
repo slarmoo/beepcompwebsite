@@ -19,6 +19,7 @@ class APIClass {
     if (this.authorization != null) { headers["Authorization"] = `Bearer ${this.authorization}`}
     
     return new Promise<any>((reso, rej) => {
+      print(`[API] ${method}: ${url}`, data)
       this._axios({ url, method, headers, data }).then(res => {
         reso(res.data)
       }).catch(reason => {

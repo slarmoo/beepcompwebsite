@@ -585,7 +585,8 @@ KeyEvents.on("click", () => {
   align-content: center;
   gap: 50px;
   --padding: 60px;
-  width: calc(100% - (var(--padding) * 2));
+  /* width: calc(100% - (var(--padding) * 2)); */
+  width: 100%;
   padding-left: var(--padding);
   padding-right: var(--padding);
   overflow-y: hidden;
@@ -709,7 +710,8 @@ KeyEvents.on("click", () => {
   --padding: calc(200px - (150px * var(--is-mobile)));
   padding-left: var(--padding);
   padding-right: var(--padding);
-  width: calc(100% - (var(--padding) * 2));
+  /* width: calc(100% - (var(--padding) * 2)); */
+  width: 100%;
 }
 
 #signups-terminal-cont {
@@ -728,9 +730,9 @@ KeyEvents.on("click", () => {
   margin: var(--margin);
   padding: var(--margin);
   /* width: 100%; */
-  width: calc(100% - (var(--margin) * 4));
+  width: calc(100% - (var(--margin) * 2));
   /* height: 100%; */
-  height: calc(100% - (var(--margin) * 4));
+  height: calc(100% - (var(--margin) * 2));
   background: #7744ff;
   border-radius: calc(var(--border-radius) - (var(--margin) * 0));
 }
@@ -742,9 +744,9 @@ KeyEvents.on("click", () => {
   /* margin: var(--margin); */
   padding: var(--margin);
   /* width: 100%; */
-  width: calc(100% - (var(--margin) * 2));
+  width: calc(100% - (var(--margin) * 0));
   /* height: 100%; */
-  height: calc(100% - (var(--margin) * 2));
+  height: calc(100% - (var(--margin) * 0));
   background: #000;
   border-radius: calc(var(--border-radius) - (var(--margin) * 1));
 }
@@ -752,8 +754,10 @@ KeyEvents.on("click", () => {
 #terminal {
   --inner-padding: 25px;
   z-index: 10;
-  width: calc(100% - (var(--inner-padding) * 2) );
-  height: calc(100% - (var(--inner-padding) * 2) );
+  width: calc(100% - (var(--inner-padding) * 0) );
+  /* width: 100%; */
+  height: calc(100% - (var(--inner-padding) * 0) );
+  /* height: 100%; */
   padding: var(--inner-padding);
   background: #151515;
   border-radius: calc(var(--border-radius) - (var(--margin) * 2));
