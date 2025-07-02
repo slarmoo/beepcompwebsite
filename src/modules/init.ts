@@ -12,7 +12,8 @@ export const LastState: Ref<State> = ref({
   serverTime: 0,
   started: false,
   server_valid: false,
-  modifiers: []
+  modifiers: [],
+  admin: false
 })
 
 var initialState = true

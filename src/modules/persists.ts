@@ -23,10 +23,13 @@ export const StartedUp: Ref<Boolean> = ref(false) // Not to be confused with the
 export enum DASH_MODES {
   ROUND,
   PARTICIPANTS,
-  PICKS
+  PICKS,
+  MODIFIERS,
+  ADMIN
 }
 export const currentDashMode: Ref<DASH_MODES> = ref(DASH_MODES.ROUND)
 export const currentDashRound: Ref<Number> = ref(-1)
+export const lastRequestedRound: Ref<Number> = ref(-1)
 
 export const GeneralEvents = new EventEmitter()
 export const TerminalEvents = new EventEmitter()

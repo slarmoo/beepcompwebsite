@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { computed, nextTick, onMounted, reactive, ref, Ref, toRaw, triggerRef, useTemplateRef, watch } from 'vue';
-import { currentDashRound, DiscordLoggedIn, GeneralEvents, loginWithDiscord, Toast } from '../../modules/persists';
+import { computed, inject, nextTick, onMounted, reactive, ref, Ref, toRaw, triggerRef, useTemplateRef, watch } from 'vue';
+import { currentDashRound, DiscordLoggedIn, GeneralEvents, lastRequestedRound, loginWithDiscord, Toast } from '../../modules/persists';
 import { LastState, loadingThings, refreshState } from '../../modules/init';
 import { API } from '../../modules/api';
 import { Round, SimpleModifier, SimpleUser, Submission, User } from '@beepcomp/core';
@@ -22,62 +22,10 @@ import SelectButton from 'primevue/selectbutton';
 import Textarea from 'primevue/textarea';
 import MultiSelect from 'primevue/multiselect';
 
-const VOL = 0.5
+const hoverSFX: ReturnedValue = (inject("hoverSFX") as ReturnedValue)
 
-import ROUND_1_MUSIC_AUDIO from "../../assets/sfx/ROUND_1.flac"
-const ROUND_1_MUSIC_SFX = useSound(ROUND_1_MUSIC_AUDIO, {onload: () => {
-    (ROUND_1_MUSIC_SFX.sound.value as any).loop(true)
-    ROUND_1_MUSIC_SFX.play()
-    ROUND_1_MUSIC_SFX.sound.value.volume((currentDashRound.value == 1) ? VOL : 0)
-  },
-  volume: ((currentDashRound.value == 1) ? VOL : 0)
-})
-import ROUND_2_MUSIC_AUDIO from "../../assets/sfx/ROUND_2.flac"
-const ROUND_2_MUSIC_SFX = useSound(ROUND_2_MUSIC_AUDIO, {onload: () => {
-    (ROUND_2_MUSIC_SFX.sound.value as any).loop(true)
-    ROUND_2_MUSIC_SFX.play()
-    ROUND_2_MUSIC_SFX.sound.value.volume((currentDashRound.value == 2) ? VOL : 0)
-  },
-  volume: ((currentDashRound.value == 2) ? VOL : 0)
-})
-import ROUND_3_MUSIC_AUDIO from "../../assets/sfx/ROUND_3.flac"
-const ROUND_3_MUSIC_SFX = useSound(ROUND_3_MUSIC_AUDIO, {onload: () => {
-    (ROUND_3_MUSIC_SFX.sound.value as any).loop(true)
-    ROUND_3_MUSIC_SFX.play()
-    ROUND_3_MUSIC_SFX.sound.value.volume((currentDashRound.value == 3) ? VOL : 0)
-  },
-  volume: ((currentDashRound.value == 3) ? VOL : 0)
-})
-import ROUND_4_MUSIC_AUDIO from "../../assets/sfx/ROUND_4.flac"
-const ROUND_4_MUSIC_SFX = useSound(ROUND_4_MUSIC_AUDIO, {onload: () => {
-    (ROUND_4_MUSIC_SFX.sound.value as any).loop(true)
-    ROUND_4_MUSIC_SFX.play()
-    ROUND_4_MUSIC_SFX.sound.value.volume((currentDashRound.value == 4) ? VOL : 0)
-  },
-  volume: ((currentDashRound.value == 4) ? VOL : 0)
-})
 function switchTo(mode: string) {
-  const map: {[index: string]: ReturnedValue} = {
-    "1": ROUND_1_MUSIC_SFX,
-    "2": ROUND_2_MUSIC_SFX,
-    "3": ROUND_3_MUSIC_SFX,
-    "4": ROUND_4_MUSIC_SFX,
-  }
-  
-  Object.keys(map).forEach(this_mode => {
-    // print(this_mode, map[this_mode].sound.value)
-    if (map[mode].sound.value == null) { return }
-    // print(this_mode, map[this_mode].sound.value.volume())
-    if (this_mode == mode) {
-      if (map[this_mode].sound.value.volume() != VOL) {
-        map[this_mode].sound.value.fade(0, VOL, 1000)
-      }
-    } else {
-      if (map[this_mode].sound.value.volume() > 0) {
-        map[this_mode].sound.value.fade(map[this_mode].sound.value.volume(), 0, 1000)
-      }
-    }
-  })
+  GeneralEvents.emit("dashboard-music-change", mode)
 }
 
 const LOADING_ROUND: Round = {
@@ -165,7 +113,10 @@ async function newRound(skipState = false) {
 GeneralEvents.on('change-round', (round_num: number) => {
   currentDashRound.value = round_num
   print("NEW ROUND PAGE: ", round_num)
-  newRound()
+  if (currentDashRound.value == -1 || lastRequestedRound.value != currentDashRound.value) {
+    lastRequestedRound.value = currentDashRound.value
+    newRound()
+  }
 })
 
 // var mounted = false
@@ -526,66 +477,68 @@ const rendered_requests = computed(() => {
 </script>
 
 <template>
-<Dialog v-model:visible="submissionVisible" modal :header="`ROUND ${currentDashRound} SUBMISSION`">
-  <Form v-slot="$form" :initialValues="submissionInit" :resolver="submissionResolver" @submit="onSubmissionSubmit" class="form">
-    <p>TITLE</p>
-    <InputText name="title" type="text" />
+<div id="whole">
+  <Dialog v-model:visible="submissionVisible" modal :header="`ROUND ${currentDashRound} SUBMISSION`">
+    <Form v-slot="$form" :initialValues="submissionInit" :resolver="submissionResolver" @submit="onSubmissionSubmit" class="form">
+      <p>TITLE</p>
+      <InputText name="title" type="text" />
 
-    <p>LINK</p>
-    <InputText name="link" type="text" />
+      <p>LINK <span style="opacity: 0.5;">(Unshortened URL)</span></p>
+      <InputText name="link" type="text" />
 
-    <p><span style="color: #25F3FF">Collab</span> or <span style="color: #E03C28">Battle</span></p>
-    <div class="collab-battle-cont">
-      <SelectButton name="request_type" :options="requestTypeOptions" option-label="name" option-value="value" v-model="requestType"/>
-      <Select name="request_receivingId" option-label="username" option-value="id" :options="usernames.map(entry => resolveSimpleUser(entry.id))" :editable="true" @change="e => requestValue = e.value" :disabled="requestType == null" />
-    </div>
-    
-    <p>CHOOSE MODIFIERS</p>
-    <!-- <MultiSelect name="modifiers" optionLabel="text" :suggestions="filteredModifiers" @complete="modifierSearch" :multiple="true" @input="e => modifierValue = e.target.value" /> -->
-    <MultiSelect name="modifiers" :options="modifiers" optionLabel="text" :show-clear="true" :selectionLimit="3" @input="e => modifierValue = e.target.value" />
+      <p><span style="color: #25F3FF">Collab</span> or <span style="color: #E03C28">Battle</span></p>
+      <div class="collab-battle-cont">
+        <SelectButton name="request_type" :options="requestTypeOptions" option-label="name" option-value="value" v-model="requestType"/>
+        <Select name="request_receivingId" option-label="username" option-value="id" :options="usernames.map(entry => resolveSimpleUser(entry.id))" :editable="true" @change="e => requestValue = e.value" :disabled="requestType == null" />
+      </div>
+      
+      <p>CHOOSE MODIFIERS</p>
+      <!-- <MultiSelect name="modifiers" optionLabel="text" :suggestions="filteredModifiers" @complete="modifierSearch" :multiple="true" @input="e => modifierValue = e.target.value" /> -->
+      <MultiSelect name="modifiers" :options="modifiers" optionLabel="text" :show-clear="true" :selectionLimit="3" @input="e => modifierValue = e.target.value" />
 
-    <p>Desc / Context:</p>
-    <Textarea name="desc" rows="5" cols="30" />
+      <p>Desc / Context:</p>
+      <Textarea name="desc" rows="5" cols="30" />
 
-    <button type="submit">Submit</button>
-  </Form>
-</Dialog>
+      <button type="submit">Submit</button>
+    </Form>
+  </Dialog>
 
-<div id="incoming-requests">
-  <div v-for="request in rendered_requests" class="incoming-request-cont">
-    <img class="incoming-request-pfp" :src="`https://cdn.discordapp.com/avatars/${request.sendingId}/${usernames.find(entry => entry.id == request.sendingId)?.avatar}.png?size=64`" />
-    <div>
-      <p v-html="generateHTML(request)"></p>
-      <!-- <p v-html="`<span style="color: ${request.type == "collab" ? "#25F3FF" : "#E03C28"}">${request.type == "collab" ? "Collab" : "Battle"} Request</span> from ${resolveSimpleUser(request.sendingId)?.username}`"></p> -->
-      <div class="request-button-cont">
-        <button class="request-button accept" @click="acceptRequest(request)">Accept</button>
-        <button class="request-button decline" @click="declineRequest(request)">Decline</button>
+  <div id="incoming-requests">
+    <div v-for="request in rendered_requests" class="incoming-request-cont">
+      <img class="incoming-request-pfp" :src="`https://cdn.discordapp.com/avatars/${request.sendingId}/${usernames.find(entry => entry.id == request.sendingId)?.avatar}.png?size=64`" />
+      <div>
+        <p v-html="generateHTML(request)"></p>
+        <!-- <p v-html="`<span style="color: ${request.type == "collab" ? "#25F3FF" : "#E03C28"}">${request.type == "collab" ? "Collab" : "Battle"} Request</span> from ${resolveSimpleUser(request.sendingId)?.username}`"></p> -->
+        <div class="request-button-cont">
+          <button class="request-button accept" @click="acceptRequest(request)">Accept</button>
+          <button class="request-button decline" @click="declineRequest(request)">Decline</button>
+        </div>
       </div>
     </div>
   </div>
-</div>
 
-<div :style="`--current-color: ${ROUND_STATE_METADATA[currentState].color}; --current-real-color: ${ROUND_STATE_METADATA[currentRoundObj.current_state].color};`" id="inner">
-  <button id="main_button" @click="ROUND_STATE_METADATA[currentState].click" v-if="!stateFlags.has('CANT_SUBMIT')">{{ ROUND_STATE_METADATA[currentState].button_text }}
-    <p id="main_button_label_fill">{{ ROUND_STATE_METADATA[currentState].button_text }}</p>
-  </button>
+  <div :style="`--current-color: ${ROUND_STATE_METADATA[currentState].color}; --current-real-color: ${ROUND_STATE_METADATA[currentRoundObj.current_state].color};`" id="inner">
+    <button id="main_button" @click="ROUND_STATE_METADATA[currentState].click" @mouseenter="(_e: MouseEvent) => { hoverSFX.play() }" v-if="!stateFlags.has('CANT_SUBMIT')">{{ ROUND_STATE_METADATA[currentState].button_text }}
+      <p id="main_button_label_fill">{{ ROUND_STATE_METADATA[currentState].button_text }}</p>
+    </button>
 
-  <div id="alert-div">
-    <div class="alerts" v-for="desc in validAlerts">
-      <img class="alert-icon" src="../../assets/gif/alert.gif"/>
-      <p class="alert-text">{{ desc }}</p>
+    <div id="alert-div">
+      <div class="alerts" v-for="desc in validAlerts">
+        <img class="alert-icon" src="../../assets/gif/alert.gif"/>
+        <p class="alert-text">{{ desc }}</p>
+      </div>
     </div>
-  </div>
 
-  <p id="round-header">{{ `ROUND ${currentDashRound}: ` }}<span style="color: #25F3FF">{{ currentRoundObj.prompt || LOADING_ROUND.prompt }}</span></p>
-  <div id="time-cont">
-    <p id="time-header">{{ROUND_STATE_METADATA[currentRoundObj.current_state].time_header}}</p>
-    <div id="timestamp">
-      <p>{{ `${["days", "hours", "minutes"].filter((unit: any) => Math.abs(durationTillNext.get(unit)) > 0).map((unit: any) => Math.abs(durationTillNext.get(unit)) + " " + unit).join(", ")}` }}</p>
-      <p id="timestamp_label_fill" :title="moment(currentRoundObj.next).format('dddd, MMMM Do YYYY, h:mm:ss a')">{{ `${["days", "hours", "minutes"].filter((unit: any) => Math.abs(durationTillNext.get(unit)) > 0).map((unit: any) => Math.abs(durationTillNext.get(unit)) + " " + unit).join(", ")}` }}</p>
+    <p id="round-header">{{ `ROUND ${currentDashRound}: ` }}<span style="color: #25F3FF">{{ currentRoundObj.prompt || LOADING_ROUND.prompt }}</span></p>
+    <div id="time-cont">
+      <p id="time-header">{{ROUND_STATE_METADATA[currentRoundObj.current_state].time_header}}</p>
+      <div id="timestamp">
+        <p>{{ `${["days", "hours", "minutes"].filter((unit: any) => Math.abs(durationTillNext.get(unit)) > 0).map((unit: any) => Math.abs(durationTillNext.get(unit)) + " " + unit).join(", ")}` }}</p>
+        <p id="timestamp_label_fill" :title="moment(currentRoundObj.next).format('dddd, MMMM Do YYYY, h:mm:ss a')">{{ `${["days", "hours", "minutes"].filter((unit: any) => Math.abs(durationTillNext.get(unit)) > 0).map((unit: any) => Math.abs(durationTillNext.get(unit)) + " " + unit).join(", ")}` }}</p>
+      </div>
     </div>
+    <p id="desc">{{ currentRoundObj.desc || LOADING_ROUND.desc}}</p>
   </div>
-  <p id="desc">{{ currentRoundObj.desc || LOADING_ROUND.desc}}</p>
 </div>
 </template>
 
@@ -598,6 +551,11 @@ const rendered_requests = computed(() => {
 </style>
 
 <style scoped>
+#whole {
+  width: 100%;
+  height: 100%;
+}
+
 .form {
   display: flex;
   flex-direction: column;
@@ -667,10 +625,14 @@ const rendered_requests = computed(() => {
   padding-bottom: 5px;
   margin-bottom: 35px;
   filter: brightness(1.0);
-  transition: filter 50ms linear;
+  opacity: 0.8;
+  transition: opacity 50ms linear, scale 350ms ease;
 }
 #main_button:hover {
-  filter: brightness(1.2);
+  /* filter: brightness(1.2); */
+  opacity: 1.0;
+  scale: 1.05;
+  transition: filter 50ms linear, scale 100ms linear;
 }
 #main_button_label_fill {
   -webkit-text-fill-color: white;

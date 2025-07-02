@@ -16,7 +16,7 @@
   left: 0px;
   width: 100%;
   height: 100%;
-  z-index: 1000;
+  z-index: 9000;
   background-color: #000000ec;
   /* opacity: 1.0; */
   display: flex;

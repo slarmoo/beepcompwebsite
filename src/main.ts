@@ -1,5 +1,11 @@
+// import "./lib/Blob.js"
+// import "./lib/FileSaver.min.js"
+// import "./lib/riffwave.js"
+// import "./lib/animalese.js"
+
 import "./extends/print"
 import "./extends/string"
+import "./extends/animalese"
 
 import "./modules/keys"
 

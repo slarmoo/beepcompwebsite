@@ -89,8 +89,8 @@ import ConfirmDialog from 'primevue/confirmdialog';
   </div>
   </TransitionGroup>
 </div>
-<Transition name="spinner">
-    <Spinner class="spinner" v-if="Object.values(loadingThings).some(bool => {return bool})" /> <!-- LoadingSpinner -->
+<Transition name="spinner" :duration="300">
+    <Spinner class="spinner" v-show="Object.values(loadingThings).some(bool => bool)" /> <!-- LoadingSpinner -->
 </Transition>
 <Popups v-if="false" /> <!-- Popups -->
 <Dashboard v-if="currentMode == SITE_MODES.MAIN"/> <!-- Main --> 

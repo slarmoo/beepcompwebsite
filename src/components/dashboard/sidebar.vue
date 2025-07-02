@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { LastState } from "../../modules/init";
-import { currentDashRound, DiscordLoggedIn, GeneralEvents, logoutDiscord } from "../../modules/persists";
+import { currentDashMode, currentDashRound, DASH_MODES, DiscordLoggedIn, GeneralEvents, logoutDiscord } from "../../modules/persists";
 import SidebarButton from "./sidebar/button.vue"
 
 import roundsSVG from "../../assets/svg/rounds.svg"
@@ -9,6 +9,8 @@ import starSVG from "../../assets/svg/star.svg"
 import cogSVG from "../../assets/svg/cog.svg"
 import questionSVG from "../../assets/svg/question.svg"
 import logoutSVG from "../../assets/svg/logout.svg"
+import modifierSVG from "../../assets/svg/modifier.svg"
+import adminSVG from "../../assets/svg/admin.svg"
 
 function openAboutPage() {
   window.open("https://about.beepcomp.co/")
@@ -21,6 +23,7 @@ function warnLogOut() {
 }
 
 GeneralEvents.on('change-round', (round_num: number) => {
+  currentDashMode.value = DASH_MODES.ROUND
   currentDashRound.value
 })
 </script>
@@ -37,10 +40,12 @@ GeneralEvents.on('change-round', (round_num: number) => {
   </div>
 
   <div id="buttons">
+    <SidebarButton label="Admin Portal" :icon="adminSVG" :click="e => { currentDashMode = DASH_MODES.ADMIN }" v-if="LastState.admin"/>
     <SidebarButton label="Rounds" :icon="roundsSVG">
       <SidebarButton v-for="round_num in LastState.currentRound" :label="`Round ${round_num}`" :click="e => { GeneralEvents.emit('change-round', round_num) }" />
     </SidebarButton>
     <!-- <SidebarButton label="Participants" :icon="peopleSVG" :click="e => { console.log(`somethin' something' Participants`) }"/> -->
+    <SidebarButton label="Modifiers" :icon="modifierSVG" :click="e => { currentDashMode = DASH_MODES.MODIFIERS }"/>
     <!-- <SidebarButton label="Your Picks" :icon="starSVG" :click="e => { console.log(`somethin' something' Your`) }" v-if="DiscordLoggedIn"/> -->
     <!-- <SidebarButton label="Settings" :icon="cogSVG" :click="e => { console.log(`somethin' something' Settings`) }"/> -->
     <SidebarButton label="About" :icon="questionSVG" :click="e => { openAboutPage() }"/>

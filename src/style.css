@@ -7,6 +7,13 @@
   font-family: BakbakOne;
 }
 
+* {
+  scroll-behavior: smooth;
+  scrollbar-color: #242424 #00000000;
+  scrollbar-width: 15px;
+}
+
+
 body {
     width: var(--scr-width);
     max-width: var(--scr-width);
