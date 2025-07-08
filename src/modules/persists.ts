@@ -1,10 +1,27 @@
-import { SignupDialogue } from "@beepcomp/core";
+import { SignupDialogue, SubmissionDatabased } from "@beepcomp/core";
 import EventEmitter from "eventemitter3";
-import { computed, inject, provide, Ref, ref } from "vue";
+import { computed, inject, nextTick, provide, Ref, ref } from "vue";
 import { RemovableRef, useStorage } from '@vueuse/core'
 import { timeout } from "./time_based";
 import { isParticipant, LastState, loadingThings, refreshState } from "./init";
 import { API } from "./api";
+import io from "socket.io-client"
+
+export const socket = io(import.meta.env.VITE_WS_HOST)
+export const liveStreaming: Ref<boolean> = ref(false)
+socket.on("connect", () => {
+  liveStreaming.value = true
+  print("Live Stream Active!")
+})
+const liveInit: Ref<any> = ref({})
+socket.on("init", (this_liveInit) => {
+  liveInit.value = this_liveInit
+})
+socket.on("disconnect", () => {
+  liveStreaming.value = false
+})
+socket.on("state_change", state => GeneralEvents.emit("live_state_change", state))
+
 export const DiscordAuth: RemovableRef<any> = useStorage("discord_token", {})
 export const ParticipationCache: RemovableRef<any> = useStorage("already_participating", false)
 
@@ -22,6 +39,7 @@ export const StartedUp: Ref<Boolean> = ref(false) // Not to be confused with the
 
 export enum DASH_MODES {
   ROUND,
+  VOTING,
   PARTICIPANTS,
   PICKS,
   MODIFIERS,
@@ -30,6 +48,41 @@ export enum DASH_MODES {
 export const currentDashMode: Ref<DASH_MODES> = ref(DASH_MODES.ROUND)
 export const currentDashRound: Ref<Number> = ref(-1)
 export const lastRequestedRound: Ref<Number> = ref(-1)
+
+export const currentVotingSubmission: Ref<SubmissionDatabased | null> = ref(null)
+export const voteState: Ref<{submission: SubmissionDatabased; progress: {done: number; total: number}; current_rating: any; previous_votes: any[]} | null> = ref(null)
+export const liveVoteState: Ref<any | null> = ref(null)
+export const votePageLiveMode: Ref<boolean> = ref(false)
+export async function switchToVoting(liveMode = false) {
+  votePageLiveMode.value = liveMode
+  GeneralEvents.emit("dashboard-music-change", null)
+  await votingSoftRefresh()
+  currentDashMode.value = DASH_MODES.VOTING
+}
+export async function votingSoftRefresh(submissionId?: string) {
+  loadingThings.value["voting"] = true
+
+  let live_vote_state;
+  if (votePageLiveMode.value) {
+    live_vote_state = await socket.emitWithAck("state")
+  }
+  print("live_vote_state", live_vote_state)
+
+  let vote_state = await API.GET(`/vote_state/${votePageLiveMode.value ? liveInit.value.round : currentDashRound.value}${submissionId ? "?submisisonId="+submissionId : (votePageLiveMode.value ? "?submisisonId="+live_vote_state.currentSubmissionId : "")}`)
+  
+  if (vote_state.error) {
+    voteState.value = null
+    currentVotingSubmission.value = null
+  } else {
+    liveVoteState.value = live_vote_state
+    voteState.value = vote_state
+    print("vote_state", vote_state)
+
+    currentVotingSubmission.value = vote_state.submission
+  }
+
+  loadingThings.value["voting"] = false
+}
 
 export const GeneralEvents = new EventEmitter()
 export const TerminalEvents = new EventEmitter()
@@ -43,6 +96,8 @@ var toast_id = 0
 export function Toast(text: string, color: string = "#7744ff") {
   let this_id = toast_id
   toast_id += 1
+
+  if (color == "ERROR") { color = "#e03c28" }
 
   active_toasts.value.push({id: this_id, text, color})
 

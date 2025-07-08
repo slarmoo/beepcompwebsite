@@ -12,7 +12,7 @@ const LastAdminState: Ref<AdminState> = ref({
 
 onMounted(async () => {
   loadingThings.value["admin_portal_state"] = true
-  LastAdminState.value = await API.GET("/admin_state")
+  LastAdminState.value = await API.GET("/admin/state")
   loadingThings.value["admin_portal_state"] = false
 })
 
@@ -33,7 +33,7 @@ const hideSubmissionSpoilers = ref(true)
       <p>{{ submission.title }}</p>
       <p class="submission-meta submission-round">Round {{ submission.round }}</p>
       <p class="submission-meta submission-authors" v-if="!hideSubmissionSpoilers">Authors: {{ (submission.authors || []).map(author => OtherUsers.find(thisUser => thisUser.id == author.userId)?.username || (author.userId == LastState?.user?.id ? LastState?.user?.username : undefined) || "").join(" & ") }}</p>
-      <a class="submission-meta-opaque submission-link" :href="submission.link">Song Link</a>
+      <a class="submission-meta-opaque submission-link" :href="submission.link" target="_blank">Song Link</a>
       <br>
       <!-- <iframe :src="SongURL(submission.link)?.player" /> -->
       <textarea disabled class="submission-meta-opaque submission-desc">{{ submission.desc }}</textarea>

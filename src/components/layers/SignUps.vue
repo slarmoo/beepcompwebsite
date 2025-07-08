@@ -107,12 +107,16 @@ const ButtonIntercepts: Ref<{[index: string]: () => void}> = ref({
     print("I'm boss.", SignUpPayload.value)
 
     loadingThings.value["signingUp"] = true
-    await API.POST("/signup", SignUpPayload.value)
+    let res = await API.POST("/signup", SignUpPayload.value)
     loadingThings.value["signingUp"] = false
 
     isParticipant.value = true
     ParticipationCache.value = true
-    Toast("Successfully signed up to tournament!")
+    if (!res.error) {
+      Toast("Successfully signed up to tournament!")
+    } else {
+      Toast("Successfully signed up to tournament!")
+    }
     gotoDialogue("signup_complete")
   },
   withdraw_yes: async () => {

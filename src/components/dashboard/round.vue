@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, inject, nextTick, onMounted, reactive, ref, Ref, toRaw, triggerRef, useTemplateRef, watch } from 'vue';
-import { currentDashRound, DiscordLoggedIn, GeneralEvents, lastRequestedRound, loginWithDiscord, Toast } from '../../modules/persists';
+import { currentDashMode, currentDashRound, DASH_MODES, DiscordLoggedIn, GeneralEvents, lastRequestedRound, loginWithDiscord, switchToVoting, Toast } from '../../modules/persists';
 import { LastState, loadingThings, refreshState } from '../../modules/init';
 import { API } from '../../modules/api';
 import { Round, SimpleModifier, SimpleUser, Submission, User } from '@beepcomp/core';
@@ -31,8 +31,8 @@ function switchTo(mode: string) {
 const LOADING_ROUND: Round = {
   prompt: "loading...",
   desc: "loading...",
-  start: 0,
   id: 0,
+  start: 0,
   curr: 0,
   next: 0,
   current_state: 'NONE',
@@ -59,7 +59,7 @@ const ROUND_STATE_METADATA: {[index: string]: {color: string; button_text: strin
     color: "#FF9752",
     button_text: "VOTE!",
     time_header: "VOTING DEADLINE",
-    click: e => {}
+    click: e => {switchToVoting()}
   },
   "DONE": {
     color: "#7744FF",
@@ -150,6 +150,8 @@ const modifierSearch = event => {
   }
 }
 
+const committed = ref(false)
+
 async function refreshRoundInfo(skipState = false) {
   print("Round: ", currentDashRound.value)
 
@@ -191,15 +193,19 @@ async function refreshRoundInfo(skipState = false) {
     submissionInit.value.link = submission.link
     submissionInit.value.desc = submission.desc
     
+    committed.value = false
+    
     if (LastState.value.rounds[round_idx].requests.outgoing != null) {
       submissionInit.value.request_type = LastState.value.rounds[round_idx].requests.outgoing.type
       submissionInit.value.request_receivingId = LastState.value.rounds[round_idx].requests.outgoing.receivingId
     } else {
       let other_author_id = (submission.authors as any[]).find((entry: any) => entry.userId != LastState.value?.user?.id)
       if (submission.challenger) {
+        committed.value = true
         submissionInit.value.request_type = "battle"
         submissionInit.value.request_receivingId = submission.challenger
       } else if (other_author_id) {
+        committed.value = true
         submissionInit.value.request_type = "collab"
         submissionInit.value.request_receivingId = other_author_id.userId
       }
@@ -295,10 +301,10 @@ const submitConfirm = (value: SubmissionRequest) => {
           print("SubmissionRequest Result: ", res)
 
           if (res.error) {
-            Toast("Error Submitting Beep!! Try again...", "#e03c28")
+            Toast(`Error:${res.error}`, "#e03c28")
           } else {
             refreshRoundInfo()
-            Toast("Beep Successfully Submitted!")
+            Toast(alreadySubmitted.value ? "Beep Successfully Updated!" : "Beep Successfully Submitted!")
           }
         },
         reject: () => {
@@ -440,10 +446,10 @@ async function acceptRequest(request) {
 
   loadingThings.value["processingRequest"] = false
 
-  if (res) {
+  if (res && !res.error) {
     Toast(`Successfully accepted ${request.type == "collab" ? "Collab" : "Battle"} Request!`)
   } else {
-    Toast(`Error Processing Request... Try again`)
+    Toast(`Error: ${res.error}`, "#e03c28")
   }
 
   return res
@@ -488,8 +494,8 @@ const rendered_requests = computed(() => {
 
       <p><span style="color: #25F3FF">Collab</span> or <span style="color: #E03C28">Battle</span></p>
       <div class="collab-battle-cont">
-        <SelectButton name="request_type" :options="requestTypeOptions" option-label="name" option-value="value" v-model="requestType"/>
-        <Select name="request_receivingId" option-label="username" option-value="id" :options="usernames.map(entry => resolveSimpleUser(entry.id))" :editable="true" @change="e => requestValue = e.value" :disabled="requestType == null" />
+        <SelectButton name="request_type" :options="requestTypeOptions" option-label="name" option-value="value" v-model="requestType" :disabled="committed"/>
+        <Select name="request_receivingId" option-label="username" option-value="id" :options="usernames.map(entry => resolveSimpleUser(entry.id))" :editable="true" @change="e => requestValue = e.value" :disabled="requestType == null || committed" />
       </div>
       
       <p>CHOOSE MODIFIERS</p>
@@ -518,8 +524,8 @@ const rendered_requests = computed(() => {
   </div>
 
   <div :style="`--current-color: ${ROUND_STATE_METADATA[currentState].color}; --current-real-color: ${ROUND_STATE_METADATA[currentRoundObj.current_state].color};`" id="inner">
-    <button id="main_button" @click="ROUND_STATE_METADATA[currentState].click" @mouseenter="(_e: MouseEvent) => { hoverSFX.play() }" v-if="!stateFlags.has('CANT_SUBMIT')">{{ ROUND_STATE_METADATA[currentState].button_text }}
-      <p id="main_button_label_fill">{{ ROUND_STATE_METADATA[currentState].button_text }}</p>
+    <button id="main_button" :style="`opacity: ${alreadySubmitted ? 0.4 : 0.8};`" @click="ROUND_STATE_METADATA[currentState].click" @mouseenter="(_e: MouseEvent) => { hoverSFX.play() }" v-if="!stateFlags.has('CANT_SUBMIT')">{{ (currentState == "OPEN" && alreadySubmitted ? "EDIT SUBMISSION..." : ROUND_STATE_METADATA[currentState].button_text) }}
+      <p id="main_button_label_fill">{{ (currentState == "OPEN" && alreadySubmitted ? "EDIT SUBMISSION..." : ROUND_STATE_METADATA[currentState].button_text) }}</p>
     </button>
 
     <div id="alert-div">
@@ -626,13 +632,13 @@ const rendered_requests = computed(() => {
   margin-bottom: 35px;
   filter: brightness(1.0);
   opacity: 0.8;
-  transition: opacity 50ms linear, scale 350ms ease;
+  transition: opacity 350ms linear, filter 350ms linear, scale 350ms ease;
 }
 #main_button:hover {
   /* filter: brightness(1.2); */
-  opacity: 1.0;
+  opacity: 1.0 !important;
   scale: 1.05;
-  transition: filter 50ms linear, scale 100ms linear;
+  transition: opacity 50ms linear, filter 50ms linear, scale 100ms linear;
 }
 #main_button_label_fill {
   -webkit-text-fill-color: white;

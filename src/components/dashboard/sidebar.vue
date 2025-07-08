@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { LastState } from "../../modules/init";
-import { currentDashMode, currentDashRound, DASH_MODES, DiscordLoggedIn, GeneralEvents, logoutDiscord } from "../../modules/persists";
+import { currentDashMode, currentDashRound, DASH_MODES, DiscordLoggedIn, GeneralEvents, liveStreaming, logoutDiscord, switchToVoting } from "../../modules/persists";
 import SidebarButton from "./sidebar/button.vue"
 
 import roundsSVG from "../../assets/svg/rounds.svg"
@@ -11,6 +11,7 @@ import questionSVG from "../../assets/svg/question.svg"
 import logoutSVG from "../../assets/svg/logout.svg"
 import modifierSVG from "../../assets/svg/modifier.svg"
 import adminSVG from "../../assets/svg/admin.svg"
+import liveSVG from "../../assets/svg/live.svg"
 
 function openAboutPage() {
   window.open("https://about.beepcomp.co/")
@@ -40,6 +41,7 @@ GeneralEvents.on('change-round', (round_num: number) => {
   </div>
 
   <div id="buttons">
+    <SidebarButton color="#FF1919" label="LIVE!" :icon="liveSVG" :click="e => { switchToVoting(true) }" v-if="liveStreaming"/>
     <SidebarButton label="Admin Portal" :icon="adminSVG" :click="e => { currentDashMode = DASH_MODES.ADMIN }" v-if="LastState.admin"/>
     <SidebarButton label="Rounds" :icon="roundsSVG">
       <SidebarButton v-for="round_num in LastState.currentRound" :label="`Round ${round_num}`" :click="e => { GeneralEvents.emit('change-round', round_num) }" />

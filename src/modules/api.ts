@@ -24,7 +24,10 @@ class APIClass {
         reso(res.data)
       }).catch(reason => {
         print(reason)
-        reso(reason?.response?.data)
+        reso({
+          status: reason?.status,
+          error: (reason?.response?.data?.error || true)
+        })
       })
     })
   }

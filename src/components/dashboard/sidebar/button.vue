@@ -6,7 +6,7 @@ import { ReturnedValue } from '@vueuse/sound';
 
 const hoverSFX: ReturnedValue = (inject("hoverSFX") as ReturnedValue)
 
-const props = defineProps<{ label: string; click?: (MouseEvent) => any; icon?: string }>();
+const props = defineProps<{ label: string; click?: (MouseEvent) => any; icon?: string; color?: string; }>();
 
 const toggleable = ref(false)
 const toggleState = ref(false)
@@ -26,7 +26,7 @@ function processClick(e: MouseEvent) {
 </script>
 
 <template>
-<button class="sidebar-button" @click="processClick" @mouseenter="(_e: MouseEvent) => { hoverSFX.play() }">
+<button class="sidebar-button" :style="`${props.color ? `background: ${props.color};` : ''}`" @click="processClick" @mouseenter="(_e: MouseEvent) => { hoverSFX.play() }">
   <div class="inner-siderbar-button">
     <img class="sidebar-button-icon"  :src="props.icon || ''" :style="`opacity: ${props.icon != null ? 1 : 0};`" />
     <p>{{ props.label }}</p>

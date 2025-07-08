@@ -5,7 +5,8 @@ import ParticipantsView from '../dashboard/participants.vue'
 import PicksView from '../dashboard/picks.vue'
 import ModifierView from '../dashboard/modifiers.vue'
 import AdminView from '../dashboard/admin.vue'
-import { currentDashMode, currentDashRound, DASH_MODES, GeneralEvents } from '../../modules/persists'
+import VotingView from '../dashboard/voting.vue'
+import { currentDashMode, currentDashRound, currentVotingSubmission, DASH_MODES, GeneralEvents } from '../../modules/persists'
 
 const pageLoaded = ref(false)
 
@@ -55,7 +56,7 @@ function switchTo(mode: string) {
   
   Object.keys(map).forEach(this_mode => {
     // print(this_mode, map[this_mode].sound.value)
-    if (map[mode] == null || map[mode].sound.value == null) { return }
+    // if (map[mode] == null || map[mode].sound.value == null) { return }
     // print(this_mode, map[this_mode].sound.value.volume())
     if (this_mode == mode) {
       if (map[this_mode].sound.value.volume() != VOL) {
@@ -82,6 +83,7 @@ onMounted(() => {
   <div id="dashboard-main">
     <Transition name="view" appear>
       <RoundView :key="String(currentDashRound)" v-if="currentDashMode == DASH_MODES.ROUND" />
+      <VotingView :key="String(currentVotingSubmission?.id || -1)" v-else-if="currentDashMode == DASH_MODES.VOTING" />
       <ParticipantsView v-else-if="currentDashMode == DASH_MODES.PARTICIPANTS" />
       <PicksView v-else-if="currentDashMode == DASH_MODES.PICKS" />
       <ModifierView v-else-if="currentDashMode == DASH_MODES.MODIFIERS" />
@@ -111,7 +113,7 @@ onMounted(() => {
 
 .sidebar-enter-active,
 .sidebar-leave-active {
-  transition: 1s ease;
+  transition: 0.75s ease;
   transition-property: opacity, transform;
 }
 
@@ -131,7 +133,8 @@ onMounted(() => {
 .view-leave-active {
   position: fixed;
   max-width: calc(100% - 360px - (30px * 2));
-  transition: opacity 1s ease, translate 1s ease;
+  max-height: calc(100% - (30px * 2));
+  transition: opacity 0.75s ease, translate 0.75s ease;
 }
 
 .view-enter-to,

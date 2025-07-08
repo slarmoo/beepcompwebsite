@@ -84,3 +84,8 @@ body {
     border-radius: 24px;
     height: 64px;
   }
+
+  .prev_vote_menu {
+  max-height: 360px;
+  overflow-y: scroll;
+}
