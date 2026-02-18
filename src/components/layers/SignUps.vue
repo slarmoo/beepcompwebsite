@@ -269,7 +269,7 @@ function injectVars(line: string) {
 
   let MAP: {[index: string]: string} = {
     "DISCORD_USER": (LastState.value.user?.username || "oops..."),
-    "DISCORD_DISPLAY_NAME": ((LastState.value.user?.global || LastState.value.user?.username) || "oops..."),
+    "DISCORD_DISPLAY_NAME": ((LastState.value.user?.global_name || LastState.value.user?.username) || "oops..."),
     "NOUN_STRING": SignUpPayload.value.noun,
     "VERB_STRING": SignUpPayload.value.verb,
     "ADJECTIVE_STRING": SignUpPayload.value.adjective,

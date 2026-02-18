@@ -1,5 +1,5 @@
 import axios, { type AxiosInstance } from "axios";
-import { DiscordAccess } from "./persists";
+import { APIToken, DiscordAccess, DiscordAuth } from "./persists";
 
 class APIClass {
   host: string = import.meta.env.VITE_API_HOST;
@@ -11,10 +11,18 @@ class APIClass {
     })
   }
   
-  async _base_request(method: ("GET" | "POST" | "PATCH" | "PUT" | "DELETE"), url: string, data: object) {
+  async _base_request(method: ("GET" | "POST" | "PATCH" | "PUT" | "DELETE"), url: string, data: object, dawg = false) {
+    if (APIToken.value == "" && Object.keys(DiscordAuth.value).length > 0 && !dawg) {
+      let this_res = await this._base_request("POST", "/login", DiscordAuth.value, true)
+      if (!this_res.error) {
+        APIToken.value = this_res
+        DiscordAuth.value = {}
+      }
+    }
+    
     let headers: any = {}
-    if (DiscordAccess.value != null) {
-      this.authorization = DiscordAccess.value
+    if (APIToken.value != null) {
+      this.authorization = APIToken.value
     }
     if (this.authorization != null) { headers["Authorization"] = `Bearer ${this.authorization}`}
     

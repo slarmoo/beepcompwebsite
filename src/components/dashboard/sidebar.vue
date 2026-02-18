@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { LastState } from "../../modules/init";
-import { currentDashMode, currentDashRound, DASH_MODES, DiscordLoggedIn, GeneralEvents, liveStreaming, logoutDiscord, switchToVoting } from "../../modules/persists";
+import { currentDashMode, currentDashRound, DASH_MODES, DiscordLoggedIn, GeneralEvents, liveStreaming, loginWithDiscord, logoutDiscord, switchToVoting } from "../../modules/persists";
 import SidebarButton from "./sidebar/button.vue"
 
 import roundsSVG from "../../assets/svg/rounds.svg"
@@ -27,6 +27,10 @@ GeneralEvents.on('change-round', (round_num: number) => {
   currentDashMode.value = DASH_MODES.ROUND
   currentDashRound.value
 })
+
+async function attemptLogin() {
+  await loginWithDiscord()
+}
 </script>
 
 <template>
@@ -35,18 +39,21 @@ GeneralEvents.on('change-round', (round_num: number) => {
   <div id="account">
     <img id="account-icon" :src="DiscordLoggedIn ? `https://cdn.discordapp.com/avatars/${LastState.user?.id}/${LastState.user?.avatar}.png?size=64` : ''" />
     <div id="account-meta">
-      <p id="account-name" >{{ (DiscordLoggedIn ? (LastState.user?.username ? "@" + LastState.user?.username : "Logging in?...") : "Not Logged In") }}</p>
+      <p id="account-name" v-if="DiscordLoggedIn">{{ LastState.user?.username ? "@" + LastState.user?.username : "Logging in?..." }}</p>
+      <p id="account-name" v-else @click="attemptLogin">Not Logged In</p>
       <div id="account-progress"></div> <!-- Progress Bar -->
     </div>
   </div>
 
   <div id="buttons">
     <SidebarButton color="#FF1919" label="LIVE!" :icon="liveSVG" :click="e => { switchToVoting(true) }" v-if="liveStreaming"/>
-    <SidebarButton label="Admin Portal" :icon="adminSVG" :click="e => { currentDashMode = DASH_MODES.ADMIN }" v-if="LastState.admin"/>
+    <SidebarButton label="Admin" :icon="adminSVG" v-if="LastState.admin">
+      <SidebarButton label="Submissions" :icon="adminSVG" :click="e => { currentDashMode = DASH_MODES.ADMIN_SUBMISSIONS }"/>
+    </SidebarButton>
     <SidebarButton label="Rounds" :icon="roundsSVG">
       <SidebarButton v-for="round_num in LastState.currentRound" :label="`Round ${round_num}`" :click="e => { GeneralEvents.emit('change-round', round_num) }" />
     </SidebarButton>
-    <!-- <SidebarButton label="Participants" :icon="peopleSVG" :click="e => { console.log(`somethin' something' Participants`) }"/> -->
+    <SidebarButton label="Participants" :icon="peopleSVG" :click="e => { currentDashMode = DASH_MODES.PARTICIPANTS }"/>
     <SidebarButton label="Modifiers" :icon="modifierSVG" :click="e => { currentDashMode = DASH_MODES.MODIFIERS }"/>
     <!-- <SidebarButton label="Your Picks" :icon="starSVG" :click="e => { console.log(`somethin' something' Your`) }" v-if="DiscordLoggedIn"/> -->
     <!-- <SidebarButton label="Settings" :icon="cogSVG" :click="e => { console.log(`somethin' something' Settings`) }"/> -->

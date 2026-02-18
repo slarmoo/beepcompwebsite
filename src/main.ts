@@ -19,6 +19,7 @@ import { createApp, ref, inject, Plugin } from 'vue';
 import './style.css'
 import App from './App.vue'
 import { isMobile } from "./modules/persists";
+import twemojiDirective from './directives/twemoji';
 
 
 export const app = createApp(App)
@@ -68,5 +69,7 @@ window.addEventListener("DOMContentLoaded", e => {
 window.addEventListener("resize", e => {
   mobileCheck()
 })
+
+app.directive('twemoji', twemojiDirective);
 
 app.mount('#app')

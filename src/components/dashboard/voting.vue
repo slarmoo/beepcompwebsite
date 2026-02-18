@@ -2,7 +2,7 @@
 import { ref, computed, onMounted, Ref, useTemplateRef, nextTick, unref, toRaw, onDeactivated, onUnmounted } from 'vue';
 import { API } from '../../modules/api';
 import { LastState, loadingThings } from '../../modules/init';
-import { currentDashRound, currentVotingSubmission, GeneralEvents, liveVoteState, socket, Toast, votePageLiveMode, voteState, votingSoftRefresh } from '../../modules/persists';
+import { currentDashRound, currentVotingSubmission, GeneralEvents, liveVoteState, openDialog, socket, Toast, votePageLiveMode, voteState, votingSoftRefresh } from '../../modules/persists';
 import { SongURL, SubmissionDatabased } from '@beepcomp/core';
 import { Rating } from 'primevue';
 import votePointSVG from "../../assets/svg/vote_point.svg"
@@ -12,10 +12,18 @@ import Popover from 'primevue/popover';
 import Menu from 'primevue/menu';
 import InputNumber from 'primevue/inputnumber';
 import { submissions } from '../../../../server/src/db/schema';
+import { rand } from '@vueuse/core';
 
+const ownSubmission = ref(false)
+const audio_mode = ref(false)
 
 onMounted(async () => {
   if (voteState.value == null) { print("okay..."); return }
+
+  audio_mode.value = (currentVotingSubmission.value?.audio != null)
+
+  ownSubmission.value = voteState.value.ownSubmission
+  if (voteState.value.ownSubmission) {liveReady.value = true}
 
   if (!votePageLiveMode.value) {
     prev_vote_items.value = voteState.value.previous_votes.map((entry: any) => {
@@ -112,7 +120,21 @@ async function readyAndSubmit() {
     if (went_thru) { liveReady.value = true }
     print("liveReady.value (submitted)", liveReady.value)
   } else {
-    liveReady.value = false
+    if (!ownSubmission.value) {
+      liveReady.value = false
+    } else {
+      const idkman = [
+        "What are you trying to pull here?...",
+        "Stop that",
+        "Wh- what?...",
+        "Bro?...",
+        "Okay... okay...",
+        "Why?...",
+        "Can you not..."
+      ]
+
+      Toast(idkman[rand(0, idkman.length-1)])
+    }
   }
 }
 
@@ -153,7 +175,7 @@ const onVoteSubmit = async ({valid, values, errors}) => {
     if (!res.error) {
       print("yay!")
       went_thru = true
-      if (!votePageLiveMode.value) { votingSoftRefresh() }
+      if (!votePageLiveMode.value) { votingSoftRefresh () }
     } else {
       Toast(`Error submitting vote: ${res.error}`, "ERROR")
     }
@@ -184,7 +206,7 @@ const recommended_voting_progress = computed(() => {
 return ((voteState.value?.progress?.done || 0) / RECOMMENDED_VOTE_COUNT)
 })
 const rest_voting_progress = computed(() => {
-return (((voteState.value?.progress?.done || 0) - RECOMMENDED_VOTE_COUNT) / (voteState.value?.progress?.total || 1))
+return (((voteState.value?.progress?.done || 0) - RECOMMENDED_VOTE_COUNT) / ((voteState.value?.progress?.total || 1) - RECOMMENDED_VOTE_COUNT))
 })
 
 const form = ref()
@@ -235,20 +257,29 @@ function togglePopover(event) {
 <template>
 <div id="whole">
   <Popover ref="prev_votes">
-    <Menu class="prev_vote_menu" :model="prev_vote_items"></Menu>
+    <Menu class="popover_menu" :model="prev_vote_items"></Menu>
   </Popover>
 
   <div v-if="currentVotingSubmission != null">
-    <div style="width: 100%;">
-      <p id="header">{{ currentVotingSubmission?.title }}</p>
-      <textarea readonly id="desc">{{ currentVotingSubmission?.desc }}</textarea>
+    <div style="display: flex; gap: 15px">
+      <img id="beep-image" v-if="currentVotingSubmission.artwork != null" :src="currentVotingSubmission.artwork" />
+      <div style="width: 100%;">
+        <p id="header" v-twemoji>{{ currentVotingSubmission?.title }}</p>
+        <textarea v-twemoji readonly id="desc">{{ currentVotingSubmission?.desc }}</textarea>
+        <a class="beep-link" @click="e => {e.preventDefault(); openDialog((currentVotingSubmission?.title || ''), (currentVotingSubmission?.desc || ''))}" href="#" v-twemoji>🔎 Expand Description</a>
+      </div>
     </div>
 
-    <!-- <p id="desc">{{ player_link }}</p> -->
-    <a class="beep-button" style="width: 250px; text-align: center; background: #343434; border-radius: 8px;" :href="link" target="_blank">🔗 Go-To Song URL</a>
-    <iframe id="beep" :src="player_link"></iframe>
+    <!-- <p class="sub-header" v-if="currentVotingSubmission.artwork != null">Artwork:</p> -->
 
-    <div style="display: flex; gap: 15px;">
+    <!-- <p id="desc">{{ player_link }}</p> -->
+    <!-- <a class="beep-button" style="width: 250px; text-align: center; background: #343434; border-radius: 8px;" :href="link" target="_blank">🔗 Go-To Song URL</a> -->
+    <Button v-if="currentVotingSubmission.audio != null" @click="audio_mode = (!audio_mode)">Toggle Audio</Button>
+    <iframe id="beep" :src="player_link" v-if="!audio_mode"></iframe>
+    <audio id="beep-audio" :src="currentVotingSubmission.audio || ''" controls v-else></audio>
+    <a class="beep-link" :href="link" target="_blank" v-twemoji>🔗 Go-To Song URL</a>
+
+    <div style="display: flex; gap: 20px;">
       <p class="sub-header">Prompt:</p>
       <p class="sub-header" style="color: #25f3ff;">{{ (LastState.rounds || [])[!votePageLiveMode ? (Number(currentDashRound)-1) : liveVoteState.round_idx].prompt }}</p>
     </div>
@@ -262,7 +293,7 @@ function togglePopover(event) {
       </div>
     </div>
 
-    <Form v-slot="$form" ref="form" :resolver="formResolver" @submit="onVoteSubmit" class="form" v-if="liveReady == false">
+    <Form v-slot="$form" ref="form" :resolver="formResolver" @submit="onVoteSubmit" class="form" v-if="liveReady == false && !ownSubmission">
       <div id="field-cont">
         <div v-for="field in fields" style="display: flex; gap: 8px;">
           <InputNumber v-model="inputs[field].value" :min="1" :max="10" :step="1" :showButtons="true" style="width: 3rem" buttonLayout="vertical"/>
@@ -280,6 +311,8 @@ function togglePopover(event) {
         </div>
       </div>
     </Form>
+
+    <div v-else-if="ownSubmission"><p class="sub-header">You can't vote on your own submission... obviously.</p></div>
     <div v-else><p class="sub-header">You can't edit vote once you're ready, you must click 'Ready' to edit again!</p></div>
 
     <div id="voting-bottom-bar">
@@ -288,7 +321,7 @@ function togglePopover(event) {
       <div id="rest-progress-bar" class="progress-bar" :style="`--progress: ${rest_voting_progress * 100}%`">Remaining Submissions ({{ Math.max((voteState?.progress?.done || 0) - RECOMMENDED_VOTE_COUNT, 0) }} / {{ (voteState?.progress?.total || RECOMMENDED_VOTE_COUNT) - RECOMMENDED_VOTE_COUNT }})</div>
       <button @click="submitForm" class="beep-button" :disabled="!((form as any)?.valid || false)" v-if="votePageLiveMode == false">Next</button>
       <button @click="jumpToLive" class="beep-button" :disabled="!((form as any)?.valid || false)" v-else-if="this_live_idx < liveVoteState.current_idx">Jump To Live</button>
-      <button @click="readyAndSubmit" class="beep-button" :disabled="!(((form as any)?.valid || liveReady))" v-else >{{liveReady ? 'Ready' : 'Not Ready'}}</button>
+      <button @click="readyAndSubmit" class="beep-button" :disabled="!(((form as any)?.valid || liveReady))" v-else >{{liveReady ? 'Unready' : 'Ready'}}</button>
     </div>
   </div>
   <div v-else>
@@ -350,11 +383,26 @@ function togglePopover(event) {
   gap: 32px;
 }
 
+#beep-image {
+  max-width: 350px;
+  width: auto;
+  max-height: 350px;
+  height: auto;
+  align-self: center;
+  border-radius: 10px;
+  border: #25f3ff 8px solid;
+}
+
 #beep {
   width: 100%;
   min-height: 300px;
   border: #444444 solid 5px;
   border-radius: 8px;
+}
+
+#beep-audio {
+  width: 100%;
+  min-height: 70px;
 }
 
 #header {
@@ -375,6 +423,13 @@ function togglePopover(event) {
   background: #ffffff1c;
   border-radius: 8px;
   /* margin-bottom: 32px; */
+}
+
+.beep-link {
+  /* width: 100%; */
+  font-size: 32px;
+  color: #7744ff;
+  /* text-align: center; */
 }
 
 #beep-link {

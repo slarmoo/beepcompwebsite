@@ -4,13 +4,17 @@ import RoundView from '../dashboard/round.vue'
 import ParticipantsView from '../dashboard/participants.vue'
 import PicksView from '../dashboard/picks.vue'
 import ModifierView from '../dashboard/modifiers.vue'
-import AdminView from '../dashboard/admin.vue'
+import AdminSubmissionsView from '../dashboard/admin/submissions.vue'
 import VotingView from '../dashboard/voting.vue'
-import { currentDashMode, currentDashRound, currentVotingSubmission, DASH_MODES, GeneralEvents } from '../../modules/persists'
+import ResultsView from '../dashboard/results.vue'
+import { currentDashMode, currentDashRound, currentVotingSubmission, DASH_MODES, GeneralEvents, Toast } from '../../modules/persists'
 
 const pageLoaded = ref(false)
 
 const VOL = 0.5
+
+import { ReturnedValue, useSound } from '@vueuse/sound'
+import { onMounted, ref } from 'vue'
 
 import ROUND_1_MUSIC_AUDIO from "../../assets/sfx/ROUND_1.flac"
 const ROUND_1_MUSIC_SFX = useSound(ROUND_1_MUSIC_AUDIO, {onload: () => {
@@ -37,8 +41,6 @@ const ROUND_3_MUSIC_SFX = useSound(ROUND_3_MUSIC_AUDIO, {onload: () => {
   volume: ((currentDashRound.value == 3) ? VOL : 0)
 })
 import ROUND_4_MUSIC_AUDIO from "../../assets/sfx/ROUND_4.flac"
-import { ReturnedValue, useSound } from '@vueuse/sound'
-import { onMounted, ref } from 'vue'
 const ROUND_4_MUSIC_SFX = useSound(ROUND_4_MUSIC_AUDIO, {onload: () => {
     (ROUND_4_MUSIC_SFX.sound.value as any).loop(true)
     ROUND_4_MUSIC_SFX.play()
@@ -46,12 +48,50 @@ const ROUND_4_MUSIC_SFX = useSound(ROUND_4_MUSIC_AUDIO, {onload: () => {
   },
   volume: ((currentDashRound.value == 4) ? VOL : 0)
 })
+import ROUND_5_MUSIC_AUDIO from "../../assets/sfx/ROUND_5.flac"
+const ROUND_5_MUSIC_SFX = useSound(ROUND_5_MUSIC_AUDIO, {onload: () => {
+    (ROUND_5_MUSIC_SFX.sound.value as any).loop(true)
+    ROUND_5_MUSIC_SFX.play()
+    ROUND_5_MUSIC_SFX.sound.value.volume((currentDashRound.value == 5) ? VOL : 0)
+  },
+  volume: ((currentDashRound.value == 4) ? VOL : 0)
+})
+import ROUND_6_MUSIC_AUDIO from "../../assets/sfx/ROUND_6.flac"
+const ROUND_6_MUSIC_SFX = useSound(ROUND_6_MUSIC_AUDIO, {onload: () => {
+    (ROUND_6_MUSIC_SFX.sound.value as any).loop(true)
+    ROUND_6_MUSIC_SFX.play()
+    ROUND_6_MUSIC_SFX.sound.value.volume((currentDashRound.value == 6) ? VOL : 0)
+  },
+  volume: ((currentDashRound.value == 4) ? VOL : 0)
+})
+import ROUND_7_MUSIC_AUDIO from "../../assets/sfx/ROUND_7.flac"
+const ROUND_7_MUSIC_SFX = useSound(ROUND_7_MUSIC_AUDIO, {onload: () => {
+    (ROUND_7_MUSIC_SFX.sound.value as any).loop(true)
+    ROUND_7_MUSIC_SFX.play()
+    ROUND_7_MUSIC_SFX.sound.value.volume((currentDashRound.value == 7) ? VOL : 0)
+  },
+  volume: ((currentDashRound.value == 4) ? VOL : 0)
+})
+import ROUND_8_MUSIC_AUDIO from "../../assets/sfx/ROUND_8.flac"
+const ROUND_8_MUSIC_SFX = useSound(ROUND_8_MUSIC_AUDIO, {onload: () => {
+    (ROUND_8_MUSIC_SFX.sound.value as any).loop(true)
+    ROUND_8_MUSIC_SFX.play()
+    ROUND_8_MUSIC_SFX.sound.value.volume((currentDashRound.value == 8) ? VOL : 0)
+  },
+  volume: ((currentDashRound.value == 4) ? VOL : 0)
+})
+let previousSwitchTo = ""
 function switchTo(mode: string) {
+  if (mode != "") { previousSwitchTo = mode }
   const map: {[index: string]: ReturnedValue} = {
     "1": ROUND_1_MUSIC_SFX,
     "2": ROUND_2_MUSIC_SFX,
     "3": ROUND_3_MUSIC_SFX,
     "4": ROUND_4_MUSIC_SFX,
+    "5": ROUND_5_MUSIC_SFX,
+    "6": ROUND_6_MUSIC_SFX,
+    "7": ROUND_7_MUSIC_SFX,
+    "8": ROUND_8_MUSIC_SFX,
   }
   
   Object.keys(map).forEach(this_mode => {
@@ -70,6 +110,19 @@ function switchTo(mode: string) {
   })
 }
 
+GeneralEvents.on("dashboard-music-pause", () => { switchTo("") })
+GeneralEvents.on("dashboard-music-resume", () => { switchTo(previousSwitchTo) })
+
+window.addEventListener("focus", e => {
+  // Toast("Resuming music...")
+  switchTo(previousSwitchTo)
+})
+
+window.addEventListener("blur", e => {
+  // Toast("Pausing music due to lost focus...")
+  switchTo("")
+})
+
 GeneralEvents.on("dashboard-music-change", switchTo)
 
 onMounted(() => {
@@ -84,10 +137,12 @@ onMounted(() => {
     <Transition name="view" appear>
       <RoundView :key="String(currentDashRound)" v-if="currentDashMode == DASH_MODES.ROUND" />
       <VotingView :key="String(currentVotingSubmission?.id || -1)" v-else-if="currentDashMode == DASH_MODES.VOTING" />
+      <ResultsView v-else-if="currentDashMode == DASH_MODES.RESULTS" />
       <ParticipantsView v-else-if="currentDashMode == DASH_MODES.PARTICIPANTS" />
       <PicksView v-else-if="currentDashMode == DASH_MODES.PICKS" />
       <ModifierView v-else-if="currentDashMode == DASH_MODES.MODIFIERS" />
-      <AdminView v-else-if="currentDashMode == DASH_MODES.ADMIN" />
+
+      <AdminSubmissionsView v-else-if="currentDashMode == DASH_MODES.ADMIN_SUBMISSIONS" />
     </Transition>
   </div>
 

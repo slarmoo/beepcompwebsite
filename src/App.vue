@@ -75,9 +75,36 @@ KeyEvents.on("any", () => {
 //   mobileCheck()
 // })
 import ConfirmDialog from 'primevue/confirmdialog';
+import Dialog from 'primevue/dialog';
+
+const dialog_visible = ref(false)
+const dialog_header = ref("")
+const dialog_content = ref("")
+
+GeneralEvents.on("open_dialog", (content: string, header: string) => {
+  dialog_visible.value = true
+  dialog_header.value = header
+  dialog_content.value = content
+})
+
+const image_dialog_visible = ref(false)
+const image_dialog_header = ref("")
+const image_dialog_src = ref("")
+
+GeneralEvents.on("open_image_dialog", (src: string, header: string) => {
+  image_dialog_visible.value = true
+  image_dialog_header.value = header
+  image_dialog_src.value = src
+})
 </script>
 
 <template>
+<Dialog v-model:visible="dialog_visible" modal :header="dialog_header" maximizable  :style="{ width: '50rem' }" :breakpoints="{ '1199px': '75vw', '575px': '90vw' }">
+  <p v-for="line in dialog_content.split('\n')" v-twemoji>{{ line }}</p>
+</Dialog>
+<Dialog v-model:visible="image_dialog_visible" modal :header="image_dialog_header" maximizable  :style="{ width: '50rem' }" :breakpoints="{ '1199px': '75vw', '575px': '90vw' }">
+  <img :src="image_dialog_src" style="display: flex; margin: auto; border-radius: 15px; width: 100%; height: 100%; object-fit: contain;" />
+</Dialog>
 <ConfirmDialog></ConfirmDialog>
 <div id="startup-page" @click="startup()" v-if="!StartedUp">
   <p>Press Anything to Enter...</p>

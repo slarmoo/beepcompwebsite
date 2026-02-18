@@ -7,8 +7,19 @@ import { isParticipant, LastState, loadingThings, refreshState } from "./init";
 import { API } from "./api";
 import io from "socket.io-client"
 
-export const socket = io(import.meta.env.VITE_WS_HOST)
+export const socket = io(import.meta.env.VITE_WS_HOST, {
+  autoConnect: false,
+})
 export const liveStreaming: Ref<boolean> = ref(false)
+try {
+  fetch(import.meta.env.VITE_WS_HOST + "/alive").then(async (res) => {
+    print("we might be streamin'", (await res.text()))
+    socket.connect()
+  })
+} catch(err) {
+  print("live stream not active...")
+}
+fetch("")
 socket.on("connect", () => {
   liveStreaming.value = true
   print("Live Stream Active!")
@@ -21,8 +32,10 @@ socket.on("disconnect", () => {
   liveStreaming.value = false
 })
 socket.on("state_change", state => GeneralEvents.emit("live_state_change", state))
+socket.on("toast", Toast)
 
 export const DiscordAuth: RemovableRef<any> = useStorage("discord_token", {})
+export const APIToken: RemovableRef<any> = useStorage("beepcomp_token", "")
 export const ParticipationCache: RemovableRef<any> = useStorage("already_participating", false)
 
 export const isMobile = ref(false)
@@ -40,17 +53,18 @@ export const StartedUp: Ref<Boolean> = ref(false) // Not to be confused with the
 export enum DASH_MODES {
   ROUND,
   VOTING,
+  RESULTS,
   PARTICIPANTS,
   PICKS,
   MODIFIERS,
-  ADMIN
+  ADMIN_SUBMISSIONS
 }
 export const currentDashMode: Ref<DASH_MODES> = ref(DASH_MODES.ROUND)
-export const currentDashRound: Ref<Number> = ref(-1)
-export const lastRequestedRound: Ref<Number> = ref(-1)
+export const currentDashRound: Ref<number> = ref(-1)
+export const lastRequestedRound: Ref<number> = ref(-1)
 
 export const currentVotingSubmission: Ref<SubmissionDatabased | null> = ref(null)
-export const voteState: Ref<{submission: SubmissionDatabased; progress: {done: number; total: number}; current_rating: any; previous_votes: any[]} | null> = ref(null)
+export const voteState: Ref<{submission: SubmissionDatabased; progress: {done: number; total: number}; current_rating: any; previous_votes: any[]; ownSubmission: boolean} | null> = ref(null)
 export const liveVoteState: Ref<any | null> = ref(null)
 export const votePageLiveMode: Ref<boolean> = ref(false)
 export async function switchToVoting(liveMode = false) {
@@ -59,6 +73,8 @@ export async function switchToVoting(liveMode = false) {
   await votingSoftRefresh()
   currentDashMode.value = DASH_MODES.VOTING
 }
+export function pauseBGM() { GeneralEvents.emit("dashboard-music-pause") }
+export function resumeBGM() { GeneralEvents.emit("dashboard-music-resume") }
 export async function votingSoftRefresh(submissionId?: string) {
   loadingThings.value["voting"] = true
 
@@ -112,13 +128,24 @@ export function killToast(id: number) {
   }
 }
 
+export function openDialog(header: string, content: string) {
+  GeneralEvents.emit("open_dialog", content, header)
+}
+
+export function openImageDialog(header: string, src: string) {
+  GeneralEvents.emit("open_image_dialog", src, header)
+}
+
 export const DiscordAccess = computed(() => {
   return DiscordAuth.value?.access_token
 })
 
 export const _DiscordJustLoggedIn = ref(false)
 export const DiscordLoggedIn = computed(() => {
-  return (_DiscordJustLoggedIn.value || DiscordAccess.value != null)
+  print(_DiscordJustLoggedIn.value)
+  print(DiscordAccess.value)
+  print(APIToken.value)
+  return (_DiscordJustLoggedIn.value || !(DiscordAccess.value == null || DiscordAccess.value == undefined) || !(APIToken.value == null || APIToken.value == ""))
 })
 
 export function loginWithDiscord() {
@@ -136,24 +163,29 @@ export function loginWithDiscord() {
 
       if (res.access_token != null) {
         DiscordAuth.value = res
-        // await (new Promise<void>((res, rej) => {setTimeout(() => res(), 10)}))
 
-        let this_res = await API.GET("/discord_only_endpoint")
-        await refreshState()
-
-        if (DiscordLoggedIn.value) {
-          Toast("Logged in with Discord!")
-          _DiscordJustLoggedIn.value = true
-          reso({server_valid: LastState.value.server_valid, logged_in: true})
-          // if (!LastState.value.server_valid) {
-          //   TerminalEvents.emit("missing_server")
-          // }
+        let this_res = await API.POST("/login", res)
+        if (this_res.error) {
+          Toast("Error Logging in with Discord...", "error")
         } else {
-          Toast("Error Logging in with Discord...")
-          reso({server_valid: LastState.value.server_valid, logged_in: false})
+          APIToken.value = this_res
+          await refreshState()
+
+          if (DiscordLoggedIn.value) {
+            Toast("Logged in with Discord!")
+            _DiscordJustLoggedIn.value = true
+            reso({server_valid: LastState.value.server_valid, logged_in: true})
+            GeneralEvents.emit("discord_login")
+            // if (!LastState.value.server_valid) {
+            //   TerminalEvents.emit("missing_server")
+            // }
+          } else {
+            Toast("Error Logging in with Discord...", "error")
+            reso({server_valid: LastState.value.server_valid, logged_in: false})
+          }
         }
       } else {
-        Toast("Error Logging in with Discord...")
+        Toast("Error Logging in with Discord...", "error")
         reso({server_valid: LastState.value.server_valid, logged_in: false})
       }
     })
@@ -162,6 +194,7 @@ export function loginWithDiscord() {
 
 export function logoutDiscord() {
   DiscordAuth.value = null
+  APIToken.value = ""
   _DiscordJustLoggedIn.value = false
   isParticipant.value = false
   ParticipationCache.value = false

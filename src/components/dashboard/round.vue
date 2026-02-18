@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, inject, nextTick, onMounted, reactive, ref, Ref, toRaw, triggerRef, useTemplateRef, watch } from 'vue';
-import { currentDashMode, currentDashRound, DASH_MODES, DiscordLoggedIn, GeneralEvents, lastRequestedRound, loginWithDiscord, switchToVoting, Toast } from '../../modules/persists';
+import { currentDashMode, currentDashRound, DASH_MODES, DiscordLoggedIn, GeneralEvents, lastRequestedRound, loginWithDiscord, openDialog, pauseBGM, resumeBGM, switchToVoting, Toast } from '../../modules/persists';
 import { LastState, loadingThings, refreshState } from '../../modules/init';
 import { API } from '../../modules/api';
 import { Round, SimpleModifier, SimpleUser, Submission, User } from '@beepcomp/core';
@@ -65,7 +65,7 @@ const ROUND_STATE_METADATA: {[index: string]: {color: string; button_text: strin
     color: "#7744FF",
     button_text: "RESULTS!",
     time_header: "",
-    click: e => {}
+    click: e => {currentDashMode.value = DASH_MODES.RESULTS}
   },
   "LOGIN": {
     color: "#5865F2",
@@ -73,7 +73,6 @@ const ROUND_STATE_METADATA: {[index: string]: {color: string; button_text: strin
     time_header: "",
     click: async e => {
       await loginWithDiscord()
-      refreshRoundInfo()
     }
   },
   // "WRONG_SERVER": {
@@ -128,7 +127,7 @@ onMounted(async () => {
 function resolveSimpleUser(id) {
   let user = usernames.value.find(entry => entry.id == id)
   if (user) {
-    return {id, username: user.username}
+    return {id, username: (user.username ?? user.id)}
   } else {
     return null
   }
@@ -192,6 +191,8 @@ async function refreshRoundInfo(skipState = false) {
     submissionInit.value.title = submission.title
     submissionInit.value.link = submission.link
     submissionInit.value.desc = submission.desc
+    // requestType.value = (submission.challenger || submission.authors.length > 1 ? (submission.challenger ? "battle" : "collab") : "")
+    // requestValue.value = (requestType.value != "" ? (requestType.value == "battle" ? submission.challenger : submission.authors.find(user => user.id != )))
     
     committed.value = false
     
@@ -203,11 +204,15 @@ async function refreshRoundInfo(skipState = false) {
       if (submission.challenger) {
         committed.value = true
         submissionInit.value.request_type = "battle"
+        requestType.value = "battle"
         submissionInit.value.request_receivingId = submission.challenger
+        requestType.value = submission.challenger
       } else if (other_author_id) {
         committed.value = true
         submissionInit.value.request_type = "collab"
+        requestType.value = "collab"
         submissionInit.value.request_receivingId = other_author_id.userId
+        requestType.value = other_author_id.userId
       }
     }
 
@@ -229,6 +234,10 @@ async function refreshRoundInfo(skipState = false) {
   timeout(refreshRoundInfo, 60000, "round_refresh")
 }
 
+GeneralEvents.on("discord_login", () => {
+  refreshRoundInfo()
+})
+
 const stateFlags: Ref<Set<string>> = ref(new Set())
 
 const currentState = computed(() => {
@@ -238,11 +247,13 @@ const currentState = computed(() => {
 
   if (!LastState.value.user?.participant) { stateFlags.value.add("NOT_PARTICIPANT") }
   if (!LastState.value.server_valid) { stateFlags.value.add("WRONG_SERVER") }
+  let bracket_key: string = `round_${currentRoundObj.value.id}_bracket`
 
   if ((!DiscordLoggedIn.value) && ["OPEN", "VOTE"].includes(state)) {
     state = "LOGIN"
   } else if (state == "OPEN") { // Logged in... but you ain't doin' shit right
     if (!LastState.value.user?.participant) { stateFlags.value.add("HARD_NOT_PARTICIPANT"); stateFlags.value.add("CANT_SUBMIT") }
+    if (currentRoundObj.value.id >= 5 && (LastState.value.user ? LastState.value.user[bracket_key] == 0 : false)) { stateFlags.value.add("ELIMINATED"); stateFlags.value.add("CANT_SUBMIT") }
   } else if (state == "VOTE") {
     if (!LastState.value.server_valid) { stateFlags.value.add("HARD_WRONG_SERVER"); stateFlags.value.add("CANT_SUBMIT") }
   }
@@ -256,6 +267,7 @@ const currentState = computed(() => {
 
 const FLAG_DESCRIPTIONS = {
   "HARD_NOT_PARTICIPANT": "You are not a participant, so you can not submit beeps to this tournament",
+  "ELIMINATED": "You were eliminated and can no longer submit beeps! You can still vote however and your votes still count as a participant vote!",
   "WRONG_SERVER": "During voting, you must be in the correct servers to vote on submissions",
 }
 
@@ -295,13 +307,13 @@ const submitConfirm = (value: SubmissionRequest) => {
         accept: async () => {
           closeSubmissionForm()
           loadingThings.value["submittingBeep"] = true
-          let res: any = await API.POST(`/submit/${currentDashRound.value}`, value)
+          let res: any = await API.POST(`/rounds/${currentDashRound.value}/submit`, value)
           loadingThings.value["submittingBeep"] = false
 
           print("SubmissionRequest Result: ", res)
 
           if (res.error) {
-            Toast(`Error:${res.error}`, "#e03c28")
+            Toast(`Error: ${res.error}`, "#e03c28")
           } else {
             refreshRoundInfo()
             Toast(alreadySubmitted.value ? "Beep Successfully Updated!" : "Beep Successfully Submitted!")
@@ -317,6 +329,17 @@ const submissionVisible = ref(false)
 const onSubmissionSubmit = ({valid, values}) => {
   print("pre: ", values)
   values["modifiers"] = toRaw(values["modifiers"]).map(entry => entry.id)
+
+  if (values["artwork"] && values["artwork"] == "") { values["artwork"] = null }
+  if (values["audio"] && values["audio"] == "") { values["audio"] = null }
+
+  // Imgur to Direct URL
+  if (values["artwork"] && values["artwork"].startsWith("https://imgur.com")) {
+    values["artwork"] = `https://i.imgur.com/${values["artwork"].split("/")[3]}.png`
+  }
+
+  requestType.value = submissionInit.value.request_type
+  requestValue.value = submissionInit.value.request_receivingId
 
   // if (requestType.value) {
   //   values[requestType.value] = requestType.value
@@ -342,7 +365,9 @@ const BLANK_SUBMISSION_INIT = {
   request_receivingId: "",
   link: "",
   desc: "",
-  modifiers: []
+  modifiers: [],
+  artwork: "",
+  audio: ""
 }
 const submissionInit: Ref<any> = ref(BLANK_SUBMISSION_INIT)
 
@@ -480,32 +505,63 @@ const rendered_requests = computed(() => {
     }
   })
 })
+
+const artworkValue = ref("")
+const audioValue = ref("")
+
+const viewAllBrackets = ref(false)
+const BRACKETS = computed(() => {
+  let to_return = {};
+  (LastState.value.other_users || []).concat(LastState.value.user ? [LastState.value.user] : []).forEach(user => {
+    if (user[`round_${currentDashRound.value}_bracket`] == 0) { return }
+    if (to_return[`bracket_${user[`round_${currentDashRound.value}_bracket`]}`] == null) { to_return[`bracket_${user[`round_${currentDashRound.value}_bracket`]}`] = [] }
+    to_return[`bracket_${user[`round_${currentDashRound.value}_bracket`]}`].push(user)
+  })
+
+  return to_return
+})
 </script>
 
 <template>
 <div id="whole">
   <Dialog v-model:visible="submissionVisible" modal :header="`ROUND ${currentDashRound} SUBMISSION`">
     <Form v-slot="$form" :initialValues="submissionInit" :resolver="submissionResolver" @submit="onSubmissionSubmit" class="form">
-      <p>TITLE</p>
+      <p>TITLE:</p>
       <InputText name="title" type="text" />
 
-      <p>LINK <span style="opacity: 0.5;">(Unshortened URL)</span></p>
+      <p>LINK: <span style="opacity: 0.5;">(Unshortened URL)</span></p>
       <InputText name="link" type="text" />
 
-      <p><span style="color: #25F3FF">Collab</span> or <span style="color: #E03C28">Battle</span></p>
+      <p><span style="color: #25F3FF">COLLAB</span> or <span style="color: #E03C28">BATTLE</span>:  </p>
       <div class="collab-battle-cont">
         <SelectButton name="request_type" :options="requestTypeOptions" option-label="name" option-value="value" v-model="requestType" :disabled="committed"/>
         <Select name="request_receivingId" option-label="username" option-value="id" :options="usernames.map(entry => resolveSimpleUser(entry.id))" :editable="true" @change="e => requestValue = e.value" :disabled="requestType == null || committed" />
       </div>
       
-      <p>CHOOSE MODIFIERS</p>
+      <p>CHOOSE MODIFIERS:</p>
       <!-- <MultiSelect name="modifiers" optionLabel="text" :suggestions="filteredModifiers" @complete="modifierSearch" :multiple="true" @input="e => modifierValue = e.target.value" /> -->
       <MultiSelect name="modifiers" :options="modifiers" optionLabel="text" :show-clear="true" :selectionLimit="3" @input="e => modifierValue = e.target.value" />
 
-      <p>Desc / Context:</p>
+      <p>DESC / CONTEXT:</p>
       <Textarea name="desc" rows="5" cols="30" />
 
-      <button type="submit">Submit</button>
+      <div style="height: 32px;"></div>
+      
+      <div style="display: flex; gap: 15px;">
+        <img style="width: 150px; height: 150px; object-fit: contain; border-radius: 8px; background-color: #08080b;" title="Artwork Preview" :src="artworkValue" />
+        <div>
+          <p>ARTWORK LINK: <span style="opacity: 0.5;">(Direct <a target="_blank" href="https://imgur.com/upload?beta">Imgur</a> or <a target="_blank" href="https://filegarden.com/">File Garden</a> URL)</span> <span @click="openDialog('Artwork Link Help', 'You can upload your artworks to Imgur or File Garden and provide the URL from those services here to submit your artwork!\n\nFor Imgur, you can either use the link that\'s given when pressing the \'Copy Link\' button on the website- or the direct \'i.imgur.com\' url\n\nFor File Garden, simply upload the image to File Garden and put the direct link here\n\nSupported Types: png, jpeg, gif, webp')" style="color: #7744ff; cursor: pointer;">[Help]</span></p>
+          <InputText style="width: 100%" name="artwork" type="text" @input="e => {if (e.target) {artworkValue = (e.target as HTMLInputElement).value}}" />
+        </div>
+      </div>
+
+      <p>AUDIO EXPORT LINK: <span style="opacity: 0.5;">(Direct <a target="_blank" href="https://filegarden.com/">File Garden</a> URL)</span> <span @click="openDialog('Audio Export Link Help', 'You can upload a direct audio url (from file garden) of your Beep to embed for people voting or future playback to ensure that it sounds how it sounds for you or if your song is very intensive for some computers, this option would be immensily useful.\nIt\'s preferred that you don\'t do any changes after exporting the audio directly from beepbox for the sake of competitiveness.\n\nOn File Garden, simply upload the exported audio from beepbox to File Garden and put the direct link here\n\nSupported Types: wav, mp3, flac, ogg')" style="color: #7744ff; cursor: pointer;">[Help]</span></p>
+      <InputText name="audio" type="text" @input="e => {if (e.target) {audioValue = (e.target as HTMLInputElement).value}}" />
+      <audio :src="audioValue" controls @play="pauseBGM()" @pause="resumeBGM()" style="width: 100%" title="Audio Export Preview"></audio>
+
+      <div style="height: 32px;"></div>
+
+      <button type="submit" style="font-size: 32px">{{(alreadySubmitted ? 'Update!' : 'Submit!')}}</button>
     </Form>
   </Dialog>
 
@@ -524,7 +580,7 @@ const rendered_requests = computed(() => {
   </div>
 
   <div :style="`--current-color: ${ROUND_STATE_METADATA[currentState].color}; --current-real-color: ${ROUND_STATE_METADATA[currentRoundObj.current_state].color};`" id="inner">
-    <button id="main_button" :style="`opacity: ${alreadySubmitted ? 0.4 : 0.8};`" @click="ROUND_STATE_METADATA[currentState].click" @mouseenter="(_e: MouseEvent) => { hoverSFX.play() }" v-if="!stateFlags.has('CANT_SUBMIT')">{{ (currentState == "OPEN" && alreadySubmitted ? "EDIT SUBMISSION..." : ROUND_STATE_METADATA[currentState].button_text) }}
+    <button id="main_button" :style="`opacity: ${(currentState == 'OPEN' && alreadySubmitted) ? 0.4 : 0.8};`" @click="ROUND_STATE_METADATA[currentState].click" @mouseenter="(_e: MouseEvent) => { hoverSFX.play() }" v-if="!stateFlags.has('CANT_SUBMIT')">{{ (currentState == "OPEN" && alreadySubmitted ? "EDIT SUBMISSION..." : ROUND_STATE_METADATA[currentState].button_text) }}
       <p id="main_button_label_fill">{{ (currentState == "OPEN" && alreadySubmitted ? "EDIT SUBMISSION..." : ROUND_STATE_METADATA[currentState].button_text) }}</p>
     </button>
 
@@ -536,7 +592,7 @@ const rendered_requests = computed(() => {
     </div>
 
     <p id="round-header">{{ `ROUND ${currentDashRound}: ` }}<span style="color: #25F3FF">{{ currentRoundObj.prompt || LOADING_ROUND.prompt }}</span></p>
-    <div id="time-cont">
+    <div id="time-cont" v-if="currentRoundObj.current_state != 'DONE'">
       <p id="time-header">{{ROUND_STATE_METADATA[currentRoundObj.current_state].time_header}}</p>
       <div id="timestamp">
         <p>{{ `${["days", "hours", "minutes"].filter((unit: any) => Math.abs(durationTillNext.get(unit)) > 0).map((unit: any) => Math.abs(durationTillNext.get(unit)) + " " + unit).join(", ")}` }}</p>
@@ -544,6 +600,34 @@ const rendered_requests = computed(() => {
       </div>
     </div>
     <p id="desc">{{ currentRoundObj.desc || LOADING_ROUND.desc}}</p>
+  </div>
+
+  <div>
+    <div style="width: 100%; height: 10px; background-color: #343434; border-radius: 10px; margin-top: 64px; margin-bottom: 64px;"></div>
+    <p v-if="currentDashRound >= 5 && LastState.user && typeof(LastState.user[`round_${currentDashRound}_bracket`]) == 'number' && LastState.user[`round_${currentDashRound}_bracket`] != 0" style="color: #ffffff7c; font-size: 64px;">You're In <span style="color: #fff">Bracket #{{ LastState.user[`round_${currentDashRound}_bracket`] }}</span>:</p>
+    <div v-if="currentDashRound >= 5 && LastState.user && typeof(LastState.user[`round_${currentDashRound}_bracket`]) == 'number' && LastState.user[`round_${currentDashRound}_bracket`] != 0" style="display: flex; flex-direction: column; gap: 15px;">
+      <div v-for="user in (LastState.other_users || [])
+        .filter(user => LastState.user && user[`round_${currentDashRound}_bracket`] == LastState.user[`round_${currentDashRound}_bracket`])
+        .concat([LastState.user])
+        .sort((a, b) => {console.log(a); return ((a.global_name ?? a.username) || '').localeCompare((b.global_name ?? b.username) || '')})"
+        style="display: flex; gap: 15px">
+        <img :src="`https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png?size=64`" style="border-radius: 50%; width: 64px; height: 64px"></img>
+        <p style="font-size: 32px;">{{ user.global_name || '@' + user.username }}</p>
+      </div>
+      <p style="color: #ffffff3c; font-size: 24px; font-style: italic;">(You must score the highest of this group to move on to the next round!)</p>
+    </div>
+    <p style="font-size: 32px; color: #7744ff; text-decoration: underline; margin-top: 32px; cursor: pointer;" @click="viewAllBrackets = !viewAllBrackets">{{ !viewAllBrackets ? 'View All Brackets' : 'Hide All Brackets' }}</p>
+    <div v-show="viewAllBrackets" style="display: grid; grid-template-columns: 50% 50%;">
+      <div v-for="bracket_key in Object.keys(BRACKETS).sort((a, b) => Number(a.split('_')[1]) - Number(b.split('_')[1]))">
+        <p style="font-size: 32px;">{{ 'Bracket #' + bracket_key.split("_")[1] }}</p>
+        <div>
+          <div v-for="user in BRACKETS[bracket_key]" style="display: flex; gap: 15px">
+            <img :src="`https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png?size=32`" style="border-radius: 50%; width: 32px; height: 32px"></img>
+            <p style="font-size: 24px;">{{ user.global_name || '@' + user.username }}</p>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 </div>
 </template>
@@ -560,6 +644,7 @@ const rendered_requests = computed(() => {
 #whole {
   width: 100%;
   height: 100%;
+  overflow-y: scroll;
 }
 
 .form {

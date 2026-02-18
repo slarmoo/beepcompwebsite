@@ -13,6 +13,13 @@
   scrollbar-width: 15px;
 }
 
+img.emoji {
+   height: 1em;
+   width: 1em;
+   margin: 0 .05em 0 .1em;
+   vertical-align: -0.1em;
+}
+
 
 body {
     width: var(--scr-width);
@@ -85,7 +92,17 @@ body {
     height: 64px;
   }
 
-  .prev_vote_menu {
+  .popover_menu {
   max-height: 360px;
   overflow-y: scroll;
+}
+
+:root {
+  --p-dialog-title-font-size: 32px !important;
+}
+
+.p-dialog-content {
+  font-weight: 100;
+  font-size: 20px;
+  opacity: 0.7;
 }
