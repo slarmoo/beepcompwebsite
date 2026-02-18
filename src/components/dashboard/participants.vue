@@ -114,22 +114,28 @@ const bonus_stats_items: ComputedRef<any[]> = computed(() => {
   return new_val
 })
 
-const bonus_stats_popover = ref()
+const bonus_stats_popover = ref();
+const popoverShow: Ref<number> = ref(0);
 function showPopover(event, id) {
   // bonus_stats_popover.value.hide()
   print(event)
+  popoverShow.value |= 1;
   bonus_stats_current.value = id
   bonus_stats_popover.value.show(event)
 }
-function hidePopover() {
+function hoverPopover() {
+  popoverShow.value |= 2;
+}
+function hidePopover(isPopover: boolean) {
   // print(event)
   // bonus_stats_current.value = event.
-  bonus_stats_popover.value.hide()
+  popoverShow.value &= isPopover ? 1 : 2;
+  setTimeout(() => { if (popoverShow.value == 0) bonus_stats_popover.value.hide() }, 30);
 }
 </script>
 
 <template>
-<Popover ref="bonus_stats_popover">
+<Popover ref="bonus_stats_popover" @mouseenter="hoverPopover()" @mouseleave="hidePopover(true)">
   <Menu class="popover_menu" :model="bonus_stats_items"></Menu>
 </Popover>
 <div id="whole">
@@ -152,7 +158,7 @@ function hidePopover() {
           </div>
         </div>
 
-        <p v-twemoji class="sub-bonus-tokens" @mouseenter="e => showPopover(e, user.id)" @mouseleave="hidePopover()"><img class="emoji token-icon" draggable="false" :src="logoSVG"> {{ user.bonus_tokens }}<span class="fade sub-bonus-pts">bonus tokens</span></p>
+        <p v-twemoji class="sub-bonus-tokens" @mouseenter="e => showPopover(e, user.id)" @mouseleave="hidePopover(false)"><img class="emoji token-icon" draggable="false" :src="logoSVG"> {{ user.bonus_tokens }}<span class="fade sub-bonus-pts">bonus tokens</span></p>
 
         <p class="sub-points" v-if="user.points > 0">{{ currentSort == 1 ? (user.total_points / user.submission_count).toFixed(2) : user.points.toFixed(2) }}<span class="fade sub-pts">{{currentSort == 1 ? 'avg' : 'pts'}}</span></p>
         <p class="sub-points" v-else><span class="fade sub-none">No public results yet...</span></p>
