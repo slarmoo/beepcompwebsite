@@ -49,7 +49,7 @@ onMounted(async () => {
 
   // initialValues.value = voteState.value.current_rating
   // print(initialValues.value)
-  print("voteState.value.current_rating", voteState.value.current_rating)
+  // print("voteState.value.current_rating", voteState.value.current_rating)
   inputs["composition"].value = voteState.value.current_rating["composition"]
   inputs["production"].value = voteState.value.current_rating["production"]
   inputs["structure"].value = voteState.value.current_rating["structure"]
@@ -57,7 +57,7 @@ onMounted(async () => {
   inputs["prompt"].value = voteState.value.current_rating["prompt"]
   inputs["modifiers"].value = voteState.value.current_rating["modifiers"]
 
-  print("dude, please...", inputs)
+  // print("dude, please...", inputs)
 })
 const inputs = {
   composition: ref(0),
@@ -73,11 +73,11 @@ const inputs = {
 const liveReady: Ref<boolean> = ref(false)
 
 const stateChangeEvent = async state => {
-  print("liveReady.value (state_change event)", liveReady.value)
+  // print("liveReady.value (state_change event)", liveReady.value)
   let positive_change = (liveVoteState.value.current_idx == this_live_idx.value && liveVoteState.value.current_idx < state.current_idx)
-  print("positive_change", positive_change)
+  // print("positive_change", positive_change)
   let negative_change = (liveVoteState.value.current_idx > state.current_idx)
-  print("negative_change", negative_change)
+  // print("negative_change", negative_change)
   liveVoteState.value = state
 
   prev_vote_items.value = liveVoteState.value.submissions.slice(0, (liveVoteState.value.current_idx + 1)).map((entry: any) => {
@@ -106,7 +106,7 @@ const stateChangeEvent = async state => {
 
 GeneralEvents.on("live_state_change", stateChangeEvent)
 onUnmounted(() => {
-  print("bye bye bye bye bye bye bye bye bye bye bye bye bye")
+  // print("bye bye bye bye bye bye bye bye bye bye bye bye bye")
   GeneralEvents.off("live_state_change", stateChangeEvent)
 })
 
@@ -118,7 +118,7 @@ async function readyAndSubmit() {
   if (!liveReady.value) {
     let went_thru = await submitForm()
     if (went_thru) { liveReady.value = true }
-    print("liveReady.value (submitted)", liveReady.value)
+    // print("liveReady.value (submitted)", liveReady.value)
   } else {
     if (!ownSubmission.value) {
       liveReady.value = false
@@ -160,9 +160,9 @@ const link = computed(() => {
 })
 
 const onVoteSubmit = async ({valid, values, errors}) => {
-  print("valid", valid)
-  print("values", values)
-  print("errors", errors)
+  // print("valid", valid)
+  // print("values", values)
+  // print("errors", errors)
 
   let went_thru = false
 
@@ -173,7 +173,7 @@ const onVoteSubmit = async ({valid, values, errors}) => {
     let res = await API.POST(`/votes/${currentVotingSubmission.value?.id}`, values)
 
     if (!res.error) {
-      print("yay!")
+      // print("yay!")
       went_thru = true
       if (!votePageLiveMode.value) { votingSoftRefresh () }
     } else {
@@ -210,9 +210,9 @@ return (((voteState.value?.progress?.done || 0) - RECOMMENDED_VOTE_COUNT) / ((vo
 })
 
 const form = ref()
-onMounted(() => {print("form", form)})
+// onMounted(() => {print("form", form)})
 function submitForm() {
-  print(form.value as any);
+  // print(form.value as any);
   (form.value as any).submit()
 
   return new Promise((reso) => {
@@ -227,11 +227,11 @@ function formResolver({values}) {
   // print(values)
   // print(Object.values(values))
   // print(Object.values(values).some(val => val == null))
-  print("inputs", inputs)
+  // print("inputs", inputs)
 
   Object.keys(values).forEach(key => {
     let val = inputs[key].value
-    print("val", val)
+    // print("val", val)
     new_values[key] = val
     if (val == null && key != "modifiers") {
       errors[key] = [{message: "No null values allowed!"}]
@@ -240,7 +240,7 @@ function formResolver({values}) {
 
   if (new_values["modifiers"] == null) { new_values["modifiers"] = 0 }
 
-  print("new_values", new_values)
+  // print("new_values", new_values)
   // if (Object.keys(errors).length > 0) { liveReady.value = false }
   
   return {values: new_values, errors}

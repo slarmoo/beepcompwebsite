@@ -39,9 +39,9 @@ function switchTo(mode: string) {
   }
   
   Object.keys(map).forEach(this_mode => {
-    print(this_mode, map[this_mode].sound.value)
+    // print(this_mode, map[this_mode].sound.value)
     if (map[mode].sound.value == null) { return }
-    print(this_mode, map[this_mode].sound.value.volume())
+    // print(this_mode, map[this_mode].sound.value.volume())
     if (this_mode == mode) {
       if (map[this_mode].sound.value.volume() != VOL) {
         map[this_mode].sound.value.fade(0, VOL, 1000)
@@ -104,7 +104,7 @@ const linesContRef = useTemplateRef("signups-lines-cont")
 const ButtonFilter: Ref<(button: SignupButton, index?: number) => boolean> = ref(() => true )
 const ButtonIntercepts: Ref<{[index: string]: () => void}> = ref({
   signup_confirm_yes: async () => {
-    print("I'm boss.", SignUpPayload.value)
+    // print("I'm boss.", SignUpPayload.value)
 
     loadingThings.value["signingUp"] = true
     let res = await API.POST("/signup", SignUpPayload.value)
@@ -120,7 +120,7 @@ const ButtonIntercepts: Ref<{[index: string]: () => void}> = ref({
     gotoDialogue("signup_complete")
   },
   withdraw_yes: async () => {
-    print("I'm boss.")
+    // print("I'm boss.")
     // Loading Wheel?...
     logoutDiscord()
 
@@ -128,12 +128,12 @@ const ButtonIntercepts: Ref<{[index: string]: () => void}> = ref({
     let res = await API.DELETE("/users/@me")
     loadingThings.value["deletingUser"] = false
 
-    print("DELETE res: ", res)
+    // print("DELETE res: ", res)
     Toast("Withdrawed from Tournament!")
     gotoDialogue("home")
   },
   missing_server_join_manual: async () => {
-    print("I'm boss.")
+    // print("I'm boss.")
     // Loading Wheel?...
 
     // Logging Out To Reset Identity Verify
@@ -378,7 +378,7 @@ async function sayLine(line: string) {
         if (CurrentDialogue.value != null) {
           await sayLine(CurrentDialogue.value.lines[lineIdx+1])
         } else {
-          print('idk man..')
+          // print('idk man..')
         }
       }
 
@@ -430,7 +430,7 @@ const ContinueAction: Ref<() => void> = ref(() => null)
 const CanContinue: Ref<boolean> = ref(true)
   provide("CanContinue", CanContinue)
 function setContinue(func: () => void, label: string = "CONTINUE") {
-  print("setting continue...", label, func)
+  // print("setting continue...", label, func)
   ContinueAction.value = func
   ContinueLabel.value = label
 }
@@ -458,7 +458,7 @@ function advanceFrame() {
   let linesCont = linesContRef.value
   if (linesCont) {
     if (Math.abs(linesCont.scrollTop - Math.abs(linesCont.clientHeight - linesCont.scrollHeight)) > 2.0) {
-      print(linesCont.scrollTop, linesCont.clientHeight - linesCont.scrollHeight)
+      // print(linesCont.scrollTop, linesCont.clientHeight - linesCont.scrollHeight)
       linesCont.scrollTop = lerp(linesCont.scrollTop, Math.abs(linesCont.clientHeight - linesCont.scrollHeight), 0.1)
     } else {
       linesCont.scrollTop = linesCont.scrollHeight
@@ -492,7 +492,7 @@ function skipLines() {
 }
 
 KeyEvents.on("enter", () => {
-  print("Bro pressed Enter?....")
+  // print("Bro pressed Enter?....")
   if (currentlyRendering.value) {
     skipLines()
   } else {
@@ -501,7 +501,7 @@ KeyEvents.on("enter", () => {
 })
 
 KeyEvents.on("click", () => {
-  print("Bro Clicked?....")
+  // print("Bro Clicked?....")
   if (currentlyRendering.value) {
     skipLines()
   }

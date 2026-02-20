@@ -133,6 +133,12 @@ p {
   mask-image: linear-gradient(transparent 0px, black 20px, black 100%);
 }
 
+@media (max-width: 750px) {
+  #result-cont {
+    grid-template-columns: calc(100% - 8px);
+  }
+}
+
 .fade {
   opacity: 0.4;
 }
@@ -150,6 +156,7 @@ p {
   margin-left: -20px;
   transform-origin: 15px 15px;
   rotate: -15deg;
+  width: 100px;
 }
 
 .sub-card-top {

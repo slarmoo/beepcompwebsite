@@ -164,7 +164,25 @@ onMounted(() => {
   padding: 30px;
 }
 
+@media (max-width: 1000px) {
+  #dashboard {
+    flex-direction: column-reverse;
+    height: 100%;
+    width: 100%;
+  }
 
+  #dashboard-main {
+    min-height: 0;
+    flex:1 1 auto;
+    width: 100%;
+    padding-top: 10px;
+  }
+
+  .sidebar {
+    min-height: 0;
+    flex: 0 0 auto;
+  }
+}
 
 .sidebar-enter-active,
 .sidebar-leave-active {

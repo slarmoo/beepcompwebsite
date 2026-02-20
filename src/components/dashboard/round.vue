@@ -111,7 +111,7 @@ async function newRound(skipState = false) {
 
 GeneralEvents.on('change-round', (round_num: number) => {
   currentDashRound.value = round_num
-  print("NEW ROUND PAGE: ", round_num)
+  // print("NEW ROUND PAGE: ", round_num)
   if (currentDashRound.value == -1 || lastRequestedRound.value != currentDashRound.value) {
     lastRequestedRound.value = currentDashRound.value
     newRound()
@@ -120,7 +120,7 @@ GeneralEvents.on('change-round', (round_num: number) => {
 
 // var mounted = false
 onMounted(async () => {
-  print("Mounted!")
+  // print("Mounted!")
   newRound(true)
 })
 
@@ -152,7 +152,7 @@ const modifierSearch = event => {
 const committed = ref(false)
 
 async function refreshRoundInfo(skipState = false) {
-  print("Round: ", currentDashRound.value)
+  // print("Round: ", currentDashRound.value)
 
   if (!skipState) { await refreshState() }
   if (LastState.value.rounds == undefined) { return }
@@ -168,7 +168,7 @@ async function refreshRoundInfo(skipState = false) {
   // print(proms)
 
   let round_idx = Number(currentDashRound.value) - 1
-  print("round_idx: ", round_idx)
+  // print("round_idx: ", round_idx)
   let round = LastState.value.rounds[round_idx]
   currentRoundObj.value = round
   durationTillNext.value = moment.duration(moment(Date.now()).diff(currentRoundObj.value.next))
@@ -178,7 +178,7 @@ async function refreshRoundInfo(skipState = false) {
   modifiers.value = LastState.value.modifiers.map(entry => ({id: entry.id, text: entry.text}))
 
   incoming_requests.value = LastState.value.rounds[round_idx].requests.incoming
-  print("LastState.value.rounds[round_idx].requests.incoming: ", LastState.value.rounds[round_idx].requests.incoming)
+  // print("LastState.value.rounds[round_idx].requests.incoming: ", LastState.value.rounds[round_idx].requests.incoming)
 
   alreadySubmitted.value = false
   if (LastState.value.rounds[round_idx].submission?.title != null) {
@@ -187,7 +187,7 @@ async function refreshRoundInfo(skipState = false) {
     submissionInit.value = BLANK_SUBMISSION_INIT
 
     let submission: Submission = LastState.value.rounds[round_idx].submission
-    print("Submission Obj: ", submission)
+    // print("Submission Obj: ", submission)
     submissionInit.value.title = submission.title
     submissionInit.value.link = submission.link
     submissionInit.value.desc = submission.desc
@@ -229,7 +229,7 @@ async function refreshRoundInfo(skipState = false) {
 
   }
 
-  print("submissionInit: ", submissionInit.value)
+  // print("submissionInit: ", submissionInit.value)
 
   timeout(refreshRoundInfo, 60000, "round_refresh")
 }
@@ -260,7 +260,7 @@ const currentState = computed(() => {
 
   // state = "WRONG_SERVER"
   // state = "CANT_SUBMIT"
-  print(stateFlags)
+  // print(stateFlags)
 
   return state
 })
@@ -310,7 +310,7 @@ const submitConfirm = (value: SubmissionRequest) => {
           let res: any = await API.POST(`/rounds/${currentDashRound.value}/submit`, value)
           loadingThings.value["submittingBeep"] = false
 
-          print("SubmissionRequest Result: ", res)
+          // print("SubmissionRequest Result: ", res)
 
           if (res.error) {
             Toast(`Error: ${res.error}`, "#e03c28")
@@ -327,7 +327,7 @@ const submitConfirm = (value: SubmissionRequest) => {
 
 const submissionVisible = ref(false)
 const onSubmissionSubmit = ({valid, values}) => {
-  print("pre: ", values)
+  // print("pre: ", values)
   values["modifiers"] = toRaw(values["modifiers"]).map(entry => entry.id)
 
   if (values["artwork"] && values["artwork"] == "") { values["artwork"] = null }
@@ -348,9 +348,9 @@ const onSubmissionSubmit = ({valid, values}) => {
   //   return modifiers.value.find((entry: any) => entry.text == modifier)?.id
   // })
 
-  print(valid)
+  // print(valid)
   if (valid) {
-    print("post: ", values)
+    // print("post: ", values)
     submitConfirm(values)
   }
 }
@@ -443,14 +443,14 @@ const collabCleanUpConfirm = (reso: (boolean) => any) => {
 
 async function acceptRequest(request) {
   loadingThings.value["processingRequest"] = true
-  print("request: ", request)
+  // print("request: ", request)
   if (alreadySubmitted.value && request.type == "collab") {
     // ... Confirm prompt
     let confirmed: boolean = await new Promise<boolean>((reso, rej) => {
       collabOverwriteConfirm(reso)
     })
 
-    print("bro. ", confirmed)
+    // print("bro. ", confirmed)
 
     if (!confirmed) { loadingThings.value["processingRequest"] = false; return }
   }
@@ -609,7 +609,7 @@ const BRACKETS = computed(() => {
       <div v-for="user in (LastState.other_users || [])
         .filter(user => LastState.user && user[`round_${currentDashRound}_bracket`] == LastState.user[`round_${currentDashRound}_bracket`])
         .concat([LastState.user])
-        .sort((a, b) => {console.log(a); return ((a.global_name ?? a.username) || '').localeCompare((b.global_name ?? b.username) || '')})"
+        .sort((a, b) => {/*console.log(a);*/ return ((a.global_name ?? a.username) || '').localeCompare((b.global_name ?? b.username) || '')})"
         style="display: flex; gap: 15px">
         <img :src="`https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png?size=64`" style="border-radius: 50%; width: 64px; height: 64px"></img>
         <p style="font-size: 32px;">{{ user.global_name || '@' + user.username }}</p>

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { inject, ref, Ref } from 'vue';
+import { inject, ref, Ref, useTemplateRef } from 'vue';
 import { TerminalEvents } from '../../modules/persists';
 import { useSound } from '@vueuse/sound'
 import { timeout } from '../../modules/time_based';
@@ -18,20 +18,19 @@ function check(e: Event) {
 }
 
 const mountedOnce = ref(false)
-const inputElem = templateRef("inputElem")
+const inputElem = useTemplateRef("inputElem")
 TerminalEvents.on("terminal_opened_"+props.type, () => {
   if (!mountedOnce.value) {
     CanContinue.value = false
   }
-  print(inputElem.value)
-  timeout(() => {inputElem.value.focus()}, 10)
+  // print(inputElem.value)
+  timeout(() => {inputElem.value!.focus()}, 10)
 })
 TerminalEvents.on("terminal_submitted_"+props.type, () => {
   motherboardSFX.play()
 })
 
 import motherboardAudio from "../../assets/sfx/motherboard.flac"
-import { templateRef } from '@vueuse/core';
 const motherboardSFX = useSound(motherboardAudio, {
   interrupt: false
 })

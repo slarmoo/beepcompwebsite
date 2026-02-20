@@ -1,6 +1,5 @@
 <script setup lang="ts">
-import { templateRef } from '@vueuse/core';
-import { inject, onMounted, ref } from 'vue';
+import { inject, onMounted, ref, useTemplateRef } from 'vue';
 import toggleArrowSVG from "../../../assets/svg/toggle_arrow.svg"
 import { ReturnedValue } from '@vueuse/sound';
 
@@ -11,9 +10,9 @@ const props = defineProps<{ label: string; click?: (MouseEvent) => any; icon?: s
 const toggleable = ref(false)
 const toggleState = ref(false)
 
-const subButtonContainer = templateRef("subButtonContainer")
+const subButtonContainer = useTemplateRef("subButtonContainer")
 onMounted(() => {
-  toggleable.value = (subButtonContainer.value.childElementCount > 0)
+  toggleable.value = (subButtonContainer.value!.childElementCount > 0)
 })
 
 function processClick(e: MouseEvent) {
@@ -90,25 +89,38 @@ function processClick(e: MouseEvent) {
 
 .sub-buttons-enter-active {
   overflow: hidden;
-  transition: height 0.8s cubic-bezier(0.25, 1, 0.5, 1), opacity 0.5s ease;
+  transition: max-height 0.8s cubic-bezier(0.25, 1, 0.5, 1), opacity 0.5s ease;
 }
 
 .sub-buttons-leave-active {
   /* position: fixed; */
   /* max-width: calc(100% - 360px); */
   overflow: hidden;
-  transition: height 0.8s cubic-bezier(0.25, 1, 0.5, 1), opacity 0.5s ease;
+  transition: max-height 0.8s cubic-bezier(0.25, 1, 0.5, 1), opacity 0.5s ease;
 }
 
 .sub-buttons-enter-to,
 .sub-buttons-leave-from {
-  height: 100%;
+  max-height: 100%;
   opacity: 1;
 }
 
 .sub-buttons-enter-from,
 .sub-buttons-leave-to {
-  height: 0%;
+  max-height: 0%;
   opacity: 0;
+}
+
+@media (max-width: 1000px) {
+  .sidebar-button {
+    font-size: 15px;
+    margin-left: 8px;
+    width: auto
+  }
+
+  .sub-buttons {
+    order: 100;
+    margin-left: 20px;
+  }
 }
 </style>

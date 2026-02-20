@@ -96,7 +96,7 @@ const currentSort: Ref<number> = ref(0)
 function toggleSort() {
   currentSort.value += 1
   currentSort.value = wrap(currentSort.value, 0, SORTS.length)
-  print(currentSort.value)
+  // print(currentSort.value)
 }
 
 const currentSortFunc = computed(() => {
@@ -110,7 +110,7 @@ const bonus_stats_items: ComputedRef<any[]> = computed(() => {
       label: `(${entry.amount >= 0 ? '+' : ''}${entry.amount}) ${entry.context}`
     }
   })
-  print("update: ", new_val)
+  // print("update: ", new_val)
   return new_val
 })
 
@@ -118,7 +118,7 @@ const bonus_stats_popover = ref();
 const popoverShow: Ref<number> = ref(0);
 function showPopover(event, id) {
   // bonus_stats_popover.value.hide()
-  print(event)
+  // print(event)
   popoverShow.value |= 1;
   bonus_stats_current.value = id
   bonus_stats_popover.value.show(event)
@@ -395,5 +395,11 @@ p {
 
 .sub-none {
   font-size: 32px;
+}
+
+@media (max-width: 750px) {
+  #result-cont {
+    grid-template-columns: calc(100% - 8px);
+  }
 }
 </style>
