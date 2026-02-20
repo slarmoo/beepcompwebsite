@@ -46,21 +46,19 @@ async function attemptLogin() {
   </div>
 
   <div id="buttons">
-    <div id="side">
-      <SidebarButton color="#FF1919" label="LIVE!" :icon="liveSVG" :click="e => { switchToVoting(true) }" v-if="liveStreaming"/>
-      <SidebarButton label="Admin" :icon="adminSVG" v-if="LastState.admin">
-        <SidebarButton label="Submissions" :icon="adminSVG" :click="e => { currentDashMode = DASH_MODES.ADMIN_SUBMISSIONS }"/>
-      </SidebarButton>
-      <SidebarButton label="Rounds" :icon="roundsSVG">
-        <SidebarButton v-for="round_num in LastState.currentRound" :label="`Round ${round_num}`" :click="e => { GeneralEvents.emit('change-round', round_num) }" />
-      </SidebarButton>
-      <SidebarButton label="Participants" :icon="peopleSVG" :click="e => { currentDashMode = DASH_MODES.PARTICIPANTS }"/>
-      <SidebarButton label="Modifiers" :icon="modifierSVG" :click="e => { currentDashMode = DASH_MODES.MODIFIERS }"/>
-      <!-- <SidebarButton label="Your Picks" :icon="starSVG" :click="e => { console.log(`somethin' something' Your`) }" v-if="DiscordLoggedIn"/> -->
-      <!-- <SidebarButton label="Settings" :icon="cogSVG" :click="e => { console.log(`somethin' something' Settings`) }"/> -->
-      <SidebarButton label="About" :icon="questionSVG" :click="e => { openAboutPage() }"/>
-      <SidebarButton label="Logout" :icon="logoutSVG" :click="e => { warnLogOut() }" v-if="DiscordLoggedIn"/>
-    </div>
+    <SidebarButton color="#FF1919" label="LIVE!" :icon="liveSVG" :click="e => { switchToVoting(true) }" v-if="liveStreaming"/>
+    <SidebarButton label="Admin" :icon="adminSVG" v-if="LastState.admin">
+      <SidebarButton label="Submissions" :icon="adminSVG" :click="e => { currentDashMode = DASH_MODES.ADMIN_SUBMISSIONS }"/>
+    </SidebarButton>
+    <SidebarButton label="Rounds" :icon="roundsSVG">
+      <SidebarButton v-for="round_num in LastState.currentRound" :label="`Round ${round_num}`" :click="e => { GeneralEvents.emit('change-round', round_num) }" />
+    </SidebarButton>
+    <SidebarButton label="Participants" :icon="peopleSVG" :click="e => { currentDashMode = DASH_MODES.PARTICIPANTS }"/>
+    <SidebarButton label="Modifiers" :icon="modifierSVG" :click="e => { currentDashMode = DASH_MODES.MODIFIERS }"/>
+    <!-- <SidebarButton label="Your Picks" :icon="starSVG" :click="e => { console.log(`somethin' something' Your`) }" v-if="DiscordLoggedIn"/> -->
+    <!-- <SidebarButton label="Settings" :icon="cogSVG" :click="e => { console.log(`somethin' something' Settings`) }"/> -->
+    <SidebarButton label="About" :icon="questionSVG" :click="e => { openAboutPage() }"/>
+    <SidebarButton label="Logout" :icon="logoutSVG" :click="e => { warnLogOut() }" v-if="DiscordLoggedIn"/>
   </div>
 
 </div>
@@ -145,15 +143,8 @@ async function attemptLogin() {
 
 @media (max-width: 1000px) {
   #sidebar {
-    /* display: grid; */
-    /* flex-direction: row; */
-    /* height: auto; */
-    /* flex: 0 0 auto; */
+    height: auto;
     width: 90%;
-  }
-  #side {
-    display: flex;
-    flex-wrap: wrap;
   }
   #buttons {
     flex-direction: row;
